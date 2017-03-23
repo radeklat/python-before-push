@@ -31,9 +31,9 @@ TODO
 ## TODOs
 * Turn into Python script
 * Make cross-platform
-* Run in a separate virtualenv
-* Install all requirements automatically
-* Generate pylint config file
-* Generate coverage config file
-* Use nosetest instead of manual search for tests
-* Use Mypy
+* ~Run in a separate virtualenv~
+* ~Install all requirements automatically~
+* ~Generate pylint config file~
+* ~Generate coverage config file~
+* ~Use nosetest instead of manual search for tests~
+* ~Use Mypy~
