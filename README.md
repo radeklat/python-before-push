@@ -50,6 +50,9 @@ TODO
 ## TODOs
 - [ ] Turn into Python script
 - [ ] Make cross-platform
+   - [ ] Linux
+   - [x] MacOS
+   - [x] Windows (Cygwin)
 - [x] Run in a separate virtualenv
 - [x] Install all requirements automatically
 - [x] Generate pylint config file
