@@ -1,79 +1,133 @@
 #!/bin/bash
-# To install required tools, run 'pip3 install pylint coverage'
 
-TESTS_FOLDER="tests"
+ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
+cd "${ROOT_FOLDER}"
 
-# trap ctrl-c and call ctrl_c()
-trap ctrl_c INT
-
-function ctrl_c() {
-    echo "** Stopped by user CTRL-C"
-    exit 1
-}
+export PYTHONPATH="${PYTHONPATH}:$(pwd)"  # PYTHONPATH for imports
 
 failed=0
-ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
-cd "$ROOT_FOLDER"
+python_exe="python3"
 
-SAVEIFS=$IFS
-IFS=$(echo -en "\n\b")
-
-##### MODIFY THESE IF NEEDED #####
-
-# Exclude/include files from/for doctests and pylint
-PYFILES=$(find . -iregex '.*\.py$') # | grep -Ev './<EXCLUDED_PATH>')
-
-# PYTHONPATH for imports
-export PYTHONPATH="$PYTHONPATH:$(pwd)"
-
-# Minimum total coverage in percent (0-100). This number should gradually increase with more/better tests
-MIN_COVERAGE=95
-
-##### Run doctest #####
-
-echo "============================== Running doctest ================================"
-
-for fl in ${PYFILES}; do
-    python -m doctest "$fl"
-    if [[ $? -ne 0 ]]; then
-        failed=1
-    fi
+while [[ "$#" > 0 ]]; do
+    case $1 in
+        -o|--browser) open_in_browser=1;;
+        -p|--pylint) use_pylint=1;;
+        -t|--types) use_typecheck=1;;
+        -n|--nose) use_nosetest=1;;
+        -h|--help) show_help=1;;
+        -ni|--noinstall) no_install_requirements=1;;
+        -nv|--novirtualenv) no_virtualenv=1;;
+        -pe|--python) python_exe="$2"; shift;;
+        *) break;;
+    esac
+    shift
 done
 
-IFS=${SAVEIFS}
-
-##### Run PyLint #####
-
-echo "============================== Running pylint ================================="
-
-pylint --rcfile="$TESTS_FOLDER/pylint.ini" $PYFILES
-if [[ $? -ne 0 ]]; then
-    failed=1
+if [[ -n ${show_help+x} ]]; then
+    echo -e "Sanity testing script. If no tool is selected, all will run by default.\n"
+    echo -e "Run as:\n  $0 [options]\n\nPossible options are:"
+    echo -e "  -h, --help: Displays this help.\n"
+    echo -e "  -p, --pylint: Run PyLint."
+    echo -e "  -t, --types: Run Mypy for checking types usage."
+    echo -e "  -n, --nose: Run unit and coverage tests with Nose.\n"
+    echo -e "  -o, --browser: Open coverage results in browser."
+    echo -e "  -ni, --noinstall: Do not install requirements and dependencies.\n"
+    echo -e "  -nv, --novirtualenv: Do not create/use virtualenv."
+    echo -e "  -pe, --python: Specify python executable to use for virtualenv."
+    exit 255
 fi
 
-##### Run unittests and coverage #####
+if [[ -z ${use_pylint+x} && -z ${use_typecheck+x} && -z ${use_nosetest+x} ]]; then
+    use_all=1
+fi
 
-echo "====================== Running unittests and coverage ========================="
+if [[ -z ${no_virtualenv+x} ]]; then
+    if [[ ! -d .venv ]]; then
+        echo -e "\n============================= Creating vitualenv ==============================\n"
 
-rm -f .coverage  # remove any previous results
+        eval "${python_exe} --version" >/dev/null 2>&1
+        if [[ $? -ne 0 ]]; then
+            echo "Python executable '${python_exe}' does not exist. Cannot create virtualenv."
+            exit 1
+        fi
 
-for fl in $(find "$TESTS_FOLDER" -iregex '.*\.py$'); do
-    echo "---------- $fl ----------"
-
-    coverage3 run --rcfile="$TESTS_FOLDER/coverage3.ini" -a "$fl"
-
-    if [[ $? -ne 0 ]]; then
-      failed=1
+        virtualenv -p "${python_exe}" ".venv"
     fi
-done
 
-coverage3 report --rcfile="$TESTS_FOLDER/coverage3.ini" --fail-under=${MIN_COVERAGE}
-if [[ $? -ne 0 ]]; then
-  failed=1
+    source ".venv/bin/activate"
 fi
 
-coverage3 html --rcfile="$TESTS_FOLDER/coverage3.ini"
+if [[ -z ${no_install_requirements+x} ]]; then
+    echo -e "\n========================== Refreshing dependencies ============================\n"
+    pip install --upgrade mypy nose rednose coverage pylint virtualenv
+    failed=$(expr ${failed} + $?)
 
-xdg-open "$ROOT_FOLDER/htmlcov/index.html"  # open in default browser
+    if [[ -f "requirements.txt" ]]; then
+        pip install --upgrade -r "requirements.txt"
+        failed=$(expr ${failed} + $?)
+    fi
+
+    echo -e "\nUse '-ni' command line argument to prevent installing requirements."
+fi
+
+if [[ -n ${use_all+x} || -n ${use_nosetest+x} ]]; then
+    echo -e "\n============================= Running nose test ===============================\n"
+
+    nosetests \
+        --with-coverage \
+        --cover-branches \
+        --cover-html \
+        --cover-erase \
+        --cover-inclusive \
+        --cover-package=du \
+        --hide-skips \
+        --rednose \
+        $(find du/tests -name "*.py")
+
+    failed=$(expr ${failed} + $?)
+
+    # open in default browser
+    if [[ -n ${open_in_browser+x} ]]; then
+        if [[ "$(uname -s)" == "Darwin" ]]; then
+            open "$ROOT_FOLDER/cover/index.html"
+        else
+            xdg-open "$ROOT_FOLDER/cover/index.html"
+        fi
+    fi
+
+    rm .coverage
+fi
+
+if [[ -n ${use_all+x} || -n ${use_typecheck+x} ]]; then
+    echo -e "\n============================ Running type check ===============================\n"
+
+    # --disallow-untyped-calls \
+    mypy \
+        --ignore-missing-imports \
+        $(find . -name "*.py" ! -regex "\.\/\.venv/.*")
+
+    failed=$(expr ${failed} + $?)
+fi
+
+if [[ -n ${use_all+x} || -n ${use_pylint+x} ]]; then
+    echo -e "\n============================== Running pylint =================================\n"
+
+    # F,E,W,R,C
+
+    pylint \
+        --disable="all,RP0001,RP0002,RP0003,RP0101,RP0401,RP0701,RP0801" \
+        --enable="F,E" \
+        --output-format="colorized" \
+        --evaluation="10.0 - ((float(20 * fatal + 10 * error + 5 * warning + 2 * refactor + convention) / statement) * 10)" \
+        --max-line-length=92 \
+        --msg-template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})' \
+        $(find . -name "*.py" ! -regex "\.\/\.venv/.*")
+
+    failed=$(expr ${failed} + $?)
+fi
+
+if [[ -z ${no_virtualenv+x} ]]; then
+    deactivate
+fi
 
 exit ${failed}
