@@ -7,6 +7,7 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)"  # PYTHONPATH for imports
 
 failed=0
 python_exe="python3"
+pylintrc='.pylintrc'
 
 while [[ "$#" > 0 ]]; do
     case $1 in
@@ -112,9 +113,15 @@ fi
 if [[ -n ${use_all+x} || -n ${use_pylint+x} ]]; then
     echo -e "\n============================== Running pylint =================================\n"
 
+    if [[ ! -f "${pylintrc}" ]]; then
+        # create default file to prevent automatic picking up an unexpected one
+        pylint --generate-rcfile >"${pylintrc}"
+    fi
+
     # F,E,W,R,C
 
     pylint \
+        --rcfile="${pylintrc}" \
         --disable="all,RP0001,RP0002,RP0003,RP0101,RP0401,RP0701,RP0801" \
         --enable="F,E" \
         --output-format="colorized" \
