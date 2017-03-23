@@ -6,8 +6,28 @@ cd "${ROOT_FOLDER}"
 export PYTHONPATH="${PYTHONPATH}:$(pwd)"  # PYTHONPATH for imports
 
 failed=0
-python_exe="python3"
 pylintrc='.pylintrc'
+pythons=("python3" "python")
+venv_activate=".venv/bin/activate"
+
+if [[ "$(uname -o)" == "Cygwin" ]]; then
+    pythons=("python3.exe" "python.exe")
+    venv_activate=".venv/Scripts/activate"
+    export PATH="/usr/local/bin:/usr/bin:$PATH"
+fi
+
+for py in ${pythons[*]}; do
+    eval "${py} --version >/dev/null 2>&1"
+    if [[ $? -eq 0 ]]; then
+        python_exe="${py}"
+        break
+    fi
+done
+
+if [[ -z ${python_exe+x} ]]; then
+    echo "No python executable found."
+    exit 253
+fi
 
 while [[ "$#" > 0 ]]; do
     case $1 in
@@ -44,6 +64,9 @@ fi
 
 if [[ -z ${no_virtualenv+x} ]]; then
     if [[ ! -d .venv ]]; then
+        pip install --upgrade virtualenv
+        failed=$(expr ${failed} + $?)
+
         echo -e "\n============================= Creating vitualenv ==============================\n"
 
         eval "${python_exe} --version" >/dev/null 2>&1
@@ -55,13 +78,18 @@ if [[ -z ${no_virtualenv+x} ]]; then
         virtualenv -p "${python_exe}" ".venv"
     fi
 
-    source ".venv/bin/activate"
+    source "${venv_activate}"
 fi
 
 if [[ -z ${no_install_requirements+x} ]]; then
     echo -e "\n========================== Refreshing dependencies ============================\n"
-    pip install --upgrade mypy nose rednose coverage pylint virtualenv
+    pip install --upgrade mypy nose rednose coverage pylint
     failed=$(expr ${failed} + $?)
+
+    if [[ "$(uname -o)" == "Cygwin" ]]; then
+        pip install --upgrade pypiwin32
+        failed=$(expr ${failed} + $?)
+    fi
 
     if [[ -f "requirements.txt" ]]; then
         pip install --upgrade -r "requirements.txt"
@@ -80,21 +108,16 @@ if [[ -n ${use_all+x} || -n ${use_nosetest+x} ]]; then
         --cover-html \
         --cover-erase \
         --cover-inclusive \
-        --cover-package=du \
+        --cover-package=src \
         --hide-skips \
         --rednose \
-        $(find du/tests -name "*.py")
+        $(find tests -name "*.py" ! -name "__init__*")
 
     failed=$(expr ${failed} + $?)
 
     # open in default browser
-    if [[ -n ${open_in_browser+x} ]]; then
-        if [[ "$(uname -s)" == "Darwin" ]]; then
-            open "$ROOT_FOLDER/cover/index.html"
-        else
-            xdg-open "$ROOT_FOLDER/cover/index.html"
-        fi
-    fi
+    [[ "$(uname -o)" == "Cygwin" ]] && cover_path="$(cygpath.exe -w "$(pwd)")" || cover_path="$(pwd)"
+    eval "${python_exe} -m webbrowser -t '${cover_path}/cover/index.html'"
 
     rm .coverage
 fi
@@ -102,8 +125,13 @@ fi
 if [[ -n ${use_all+x} || -n ${use_typecheck+x} ]]; then
     echo -e "\n============================ Running type check ===============================\n"
 
+    mypy_exe="mypy"
+    if [[ "$(uname -o)" == "Cygwin" ]]; then
+        mypy_exe="${python_exe} .venv/Lib/site-packages/mypy/"
+    fi
+
     # --disallow-untyped-calls \
-    mypy \
+    eval ${mypy_exe} \
         --ignore-missing-imports \
         $(find . -name "*.py" ! -regex "\.\/\.venv/.*")
 
