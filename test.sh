@@ -9,8 +9,9 @@ failed=0
 pylintrc='.pylintrc'
 pythons=("python3" "python")
 venv_activate=".venv/bin/activate"
+current_os="$(uname -s)"
 
-if [[ "$(uname -o)" == "Cygwin" ]]; then
+if [[ "${current_os}" == "CYGWIN_NT-6.1" ]]; then
     pythons=("python3.exe" "python.exe")
     venv_activate=".venv/Scripts/activate"
     export PATH="/usr/local/bin:/usr/bin:$PATH"
@@ -86,7 +87,7 @@ if [[ -z ${no_install_requirements+x} ]]; then
     pip install --upgrade mypy nose rednose coverage pylint
     failed=$(expr ${failed} + $?)
 
-    if [[ "$(uname -o)" == "Cygwin" ]]; then
+    if [[ "${current_os}" == "CYGWIN_NT-6.1" ]]; then
         pip install --upgrade pypiwin32
         failed=$(expr ${failed} + $?)
     fi
@@ -116,7 +117,7 @@ if [[ -n ${use_all+x} || -n ${use_nosetest+x} ]]; then
     failed=$(expr ${failed} + $?)
 
     # open in default browser
-    [[ "$(uname -o)" == "Cygwin" ]] && cover_path="$(cygpath.exe -w "$(pwd)")" || cover_path="$(pwd)"
+    [[ "${current_os}" == "CYGWIN_NT-6.1" ]] && cover_path="$(cygpath.exe -w "$(pwd)")" || cover_path="$(pwd)"
     eval "${python_exe} -m webbrowser -t '${cover_path}/cover/index.html'"
 
     rm .coverage
@@ -126,7 +127,7 @@ if [[ -n ${use_all+x} || -n ${use_typecheck+x} ]]; then
     echo -e "\n============================ Running type check ===============================\n"
 
     mypy_exe="mypy"
-    if [[ "$(uname -o)" == "Cygwin" ]]; then
+    if [[ "${current_os}" == "CYGWIN_NT-6.1" ]]; then
         mypy_exe="${python_exe} .venv/Lib/site-packages/mypy/"
     fi
 
