@@ -131,6 +131,15 @@ test_failed_strict() {
     fi
 }
 
+# $1 - utility name
+# $2 - command to run to check if it is installed
+terminate_if_not_installed() {
+    $2 >/dev/null 2>&1
+    test_exit $? "Please install '$1' utility."
+}
+
+[[ ${ENABLE_SONAR} == true && ! -f "${SONAR_SCANNER}" ]] && terminate_if_not_installed 'unzip' 'unzip -v'
+[[ ${ENABLE_SONAR} == true ]] && terminate_if_not_installed 'curl' 'curl --help'
 
 # Check if discovered python version is within allowed range.
 check_supported_python_version() {
@@ -463,7 +472,6 @@ if [[ ${ENABLE_SONAR} == true && ${use_sonar} == true ]]; then
     echo -e "\n============================= Running SonarLint ===============================\n"
 
     if [[ ! -f "${SONAR_SCANNER}" ]]; then
-
         curl -L -s -o "${SONAR_ZIP}" "${SONAR_SCANNER_URL}"
         test_exit $? "Failed to download sonar-scanner."  "Sonar-scanner downloaded."
         unzip -q -o "${SONAR_ZIP}"

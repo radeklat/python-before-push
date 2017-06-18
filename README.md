@@ -54,6 +54,16 @@ all tests in the test folder (default is `test`, defined in `TESTS_FOLDER`). The
 1. Use additional options to fine-tune what is being run. See help: \
    `./test.sh -h` or `./test.sh --help`
 
+## Dependencies
+
+Only SonarQube has some dependencies. If you don't intend to use it, you can use the script
+as is. In order to be able to run SonarQube Scanner and get the Quality Gate result back,
+you will need to install the following:
+
+* curl
+* unzip
+* [Oracle Java SE Development Kit (JDK)](www.oracle.com/technetwork/java/javase/downloads/) (not just JRE!)
+
 ## Usage as a Git hook
 
 TODO
