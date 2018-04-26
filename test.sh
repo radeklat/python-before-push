@@ -27,11 +27,12 @@ NC='\033[0m' # No Color
 PYLINTRC='.pylintrc'
 SONAR_FILE='sonar-project.properties'
 SONAR_REPORT='sonar_report.json'
-SONAR_SCANNER_URL="https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-3.0.0.702.zip"
-SONAR_ZIP_FOLDER="sonar-scanner-3.0.0.702"
-SONAR_ZIP="scanner.zip"
+SONAR_SCANNER_VERSION="3.1.0.1141"
+SONAR_SCANNER_ZIP_FILE="sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"
+SONAR_SCANNER_ZIP_FOLDER="sonar-scanner-${SONAR_SCANNER_VERSION}"
+SONAR_SCANNER_URL="https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/${SONAR_SCANNER_ZIP_FILE}"
 PYLINT_REPORT="pylint_report.sonar"
-ENABLE_NOSE=${ENABLE_DOCTESTS} || ${ENABLE_UNITTESTS} || ${ENABLE_COVERAGE} || ${ENABLE_BDD}
+ENABLE_NOSE=false; ${ENABLE_DOCTESTS} || ${ENABLE_UNITTESTS} || ${ENABLE_COVERAGE} || ${ENABLE_BDD} && ENABLE_NOSE=true
 XUNIT_FILE="nosetests.xml"
 COVERAGE_FILE="coverage.xml"
 export PYTHONPATH="$(pwd)/${SOURCES_FOLDER}:$(pwd):${PYTHONPATH}"  # PYTHONPATH for imports
@@ -88,7 +89,7 @@ trap sigint_handler INT
 
 cleanup() {
     rm -rf "${PYLINT_REPORT}" "${COVERAGE_FILE}" "${XUNIT_FILE}" .scannerwork .coverage \
-    "${SONAR_ZIP}" "${SONAR_ZIP_FOLDER}" "${SONAR_REPORT}"
+    "${SONAR_SCANNER_ZIP_FILE}" "${SONAR_SCANNER_ZIP_FOLDER}" "${SONAR_REPORT}"
 }
 
 cleanup
@@ -250,6 +251,14 @@ else # only some tests selected, set the rest to false if not defined
     set_default_values false
 fi
 
+# turn off disabled
+[[ ${ENABLE_TYPES} == false ]] && use_typecheck=false
+[[ ${ENABLE_DOCTESTS} == false ]] && use_doctests=false
+[[ ${ENABLE_UNITTESTS} == false ]] && use_unittests=false
+[[ ${ENABLE_COVERAGE} == false ]] && use_coverage=false
+[[ ${ENABLE_BDD} == false ]] && use_bdd=false
+[[ ${ENABLE_SONAR} == false ]] && use_sonar=false
+
 open_in_browser=${open_in_browser:-false}
 no_install_requirements=${no_install_requirements:-false}
 novirtualenv=${novirtualenv:-false}
@@ -330,17 +339,16 @@ if [[ ${no_install_requirements} == false ]]; then
 
     echo -e "\nUse '-ni' command line argument to prevent installing requirements."
 fi
-
 if [[ ${ENABLE_NOSE} == true && ${use_nose} == true ]]; then
     echo -e "\n============================= Running nose test ===============================\n"
 
     params=(--hide-skips --rednose -s)
     [[ ${use_unittests} == true ]] && params+=(--with-timer --timer-ok 250ms --timer-warning 1s --timer-filter warning,error)
-    [[ ${use_unittests} == true && ${use_bdd} ]] && params+=(--no-ignore-python)
-    [[ ${use_bdd} ]] && params+=(--with-gherkin)
-    [[ ${use_coverage} ]] && params+=(--with-coverage --cover-branches --cover-html --cover-erase --cover-inclusive --cover-package="${SOURCES_FOLDER}")
-    [[ ${use_sonar} ]] && params+=(--with-xunit --cover-xml)
-    [[ ${use_doctests} ]] && params+=(--with-doctest --doctest-options='+ELLIPSIS,+NORMALIZE_WHITESPACE')
+    [[ ${use_unittests} == true && ${use_bdd} == true ]] && params+=(--no-ignore-python)
+    [[ ${use_bdd} == true ]] && params+=(--with-gherkin)
+    [[ ${use_coverage} == true ]] && params+=(--with-coverage --cover-branches --cover-html --cover-erase --cover-inclusive --cover-package="${SOURCES_FOLDER}")
+    [[ ${use_sonar} == true ]] && params+=(--with-xunit --cover-xml)
+    [[ ${use_doctests} == true ]] && params+=(--with-doctest --doctest-options='+ELLIPSIS,+NORMALIZE_WHITESPACE')
 
     nosetests ${params[@]} ${test_files}
 
@@ -472,12 +480,12 @@ if [[ ${ENABLE_SONAR} == true && ${use_sonar} == true ]]; then
     echo -e "\n============================= Running SonarLint ===============================\n"
 
     if [[ ! -f "${SONAR_SCANNER}" ]]; then
-        curl -L -s -o "${SONAR_ZIP}" "${SONAR_SCANNER_URL}"
+        curl -L -s -o "${SONAR_SCANNER_ZIP_FILE}" "${SONAR_SCANNER_URL}"
         test_exit $? "Failed to download sonar-scanner."  "Sonar-scanner downloaded."
-        unzip -q -o "${SONAR_ZIP}"
+        unzip -q -o "${SONAR_SCANNER_ZIP_FILE}"
         test_exit $? "Failed to unzip scanner.zip"  "Sonar-scanner unzipped."
         mkdir "${VENV}" 2>/dev/null
-        cp -f -R "${SONAR_ZIP_FOLDER}/bin" "${SONAR_ZIP_FOLDER}/lib" "${VENV}"
+        cp -f -R "${SONAR_SCANNER_ZIP_FOLDER}/bin" "${SONAR_SCANNER_ZIP_FOLDER}/lib" "${VENV}"
         chmod +x "${SONAR_SCANNER}"
     fi
 
