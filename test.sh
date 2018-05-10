@@ -311,7 +311,7 @@ pip_install_if () {
 gitignore_if_not_ignored () {
     [[ $1 == false ]] && return 1
     [[ ! -f .gitignore ]] && touch .gitignore
-    pattern="echo '${2}' | sed -E 's/([.*{[}]|])/\\\1/g'"
+    pattern="$(echo "${2}" | sed -E 's/([.*{[}]|])/\\\1/g')"
     [[ $(grep -q "^${pattern}$" .gitignore; echo $?) -ne 0 ]] && echo "${2}" >>.gitignore
 }
 
@@ -319,7 +319,7 @@ gitignore_if_not_ignored true '.venv_*'
 gitignore_if_not_ignored true '.pylintrc'
 gitignore_if_not_ignored true '.idea/sonarlint'
 gitignore_if_not_ignored ${ENABLE_COVERAGE} 'cover'
-gitignore_if_not_ignored ${ENABLE_TYPES} '.mypy_cache'
+gitignore_if_not_ignored ${ENABLE_TYPES} '.mypy_cache/'
 
 if [[ ${no_install_requirements} == false ]]; then
     echo -e "\n========================== Refreshing dependencies ============================\n"
@@ -398,6 +398,7 @@ run_pylint() {
     elif [[ $1 == 'tests' ]]; then  # running pylint for tests code
         params=(\
             --disable=unused-import,missing-docstring,protected-access \
+            --ignored-modules=behave \
             --output-format=colorized --method-rgx='[a-z_][a-z0-9_]{2,86}$' \
         )
         files="${unit_test_files} ${bdd_test_files}"
