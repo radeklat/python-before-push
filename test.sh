@@ -390,16 +390,16 @@ run_pylint() {
 
     # unused-import disabled because it is picking up typing imports. Fix is coming.
 
+    msg_template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})'
+
     if [[ $1 == 'source' ]]; then  # running pylint for source code
         params=(--disable=unused-import,missing-docstring --output-format=colorized)
-        msg_template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})'
         files=${source_files}
     elif [[ $1 == 'tests' ]]; then  # running pylint for tests code
         params=(\
             --disable=unused-import,missing-docstring,protected-access \
             --output-format=colorized --method-rgx='[a-z_][a-z0-9_]{2,86}$' \
         )
-        msg_template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})'
         files="${unit_test_files} ${bdd_test_files}"
     elif [[ $1 == 'sonar' ]]; then  # running pylint for SonarQube
         params=(--reports=n)
