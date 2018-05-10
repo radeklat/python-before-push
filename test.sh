@@ -10,10 +10,10 @@ ENABLE_COVERAGE=true
 ENABLE_BDD=true
 ENABLE_TYPES=true
 ENABLE_SONAR=true
-MIN_PYTHON_VERSION="3.4"
-MAX_PYTHON_VERSION="3.6.1"
 SOURCES_FOLDER='src'
 SONAR_SERVER=''
+MIN_PYTHON_VERSION="3.6.5"
+MAX_PYTHON_VERSION="3.6.5"
 UNIT_TESTS_FOLDER='tests/unit'
 BDD_TESTS_FOLDER='tests/features'
 SONAR_TEAM=''
@@ -507,11 +507,8 @@ if [[ ${ENABLE_SONAR} == true && ${use_sonar} == true ]]; then
     test_exit $? "${output}\n\n${msg}"
 
     if [[ ! -f "${SONAR_FILE}" ]]; then
-        echo -n "Enter your SonarQube user name [$(id -nu)]: "
-        read sonar_username
-        sonar_username=${sonar_username:-"$(id -nu)"}
-        echo -n "Enter your SonarQube password: "
-        read -s sonar_password
+        echo -n "Enter your SonarQube token (My Account/Security/Tokens): "
+        read sonar_token
         echo -e "\nWriting information into '${SONAR_FILE}'."
         sonar_project_no_spaces="$(echo "${SONAR_PROJECT}" | tr ' ' '_')"
 
@@ -520,14 +517,13 @@ sonar.python.coverage.reportPath=${COVERAGE_FILE}
 sonar.python.xunit.reportPath=${XUNIT_FILE}
 sonar.python.pylint.reportPath=${PYLINT_REPORT}
 sonar.host.url=${SONAR_SERVER}
-sonar.projectKey=${SONAR_TEAM}:${sonar_project_no_spaces}_${sonar_username}
-sonar.projectName=${SONAR_PROJECT} (${sonar_username})
+sonar.projectKey=${SONAR_TEAM}:${sonar_project_no_spaces}
+sonar.projectName=${SONAR_PROJECT}
 sonar.projectVersion=${SONAR_PROJECT_VERSION}
 sonar.sources=.
 sonar.coverage.exclusions=cover/**,${UNIT_TESTS_FOLDER}/**,${BDD_TESTS_FOLDER}/**
 sonar.inclusions=${SOURCES_FOLDER}/**
-sonar.login=${sonar_username}
-sonar.password=${sonar_password}" >"${SONAR_FILE}"
+sonar.login=${sonar_token}" >"${SONAR_FILE}"
     fi
 
     if [[ ! -f "${PYLINT_REPORT}" ]]; then
