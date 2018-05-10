@@ -13,8 +13,9 @@ ENABLE_SONAR=true
 MIN_PYTHON_VERSION="3.4"
 MAX_PYTHON_VERSION="3.6.1"
 SOURCES_FOLDER='src'
-TESTS_FOLDER='test'
 SONAR_SERVER=''
+UNIT_TESTS_FOLDER='tests/unit'
+BDD_TESTS_FOLDER='tests/features'
 SONAR_TEAM=''
 SONAR_PROJECT=''
 SONAR_PROJECT_VERSION='1.0'
@@ -32,7 +33,7 @@ SONAR_SCANNER_ZIP_FILE="sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"
 SONAR_SCANNER_ZIP_FOLDER="sonar-scanner-${SONAR_SCANNER_VERSION}"
 SONAR_SCANNER_URL="https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/${SONAR_SCANNER_ZIP_FILE}"
 PYLINT_REPORT="pylint_report.sonar"
-ENABLE_NOSE=false; ${ENABLE_DOCTESTS} || ${ENABLE_UNITTESTS} || ${ENABLE_COVERAGE} || ${ENABLE_BDD} && ENABLE_NOSE=true
+ENABLE_NOSE=false; ${ENABLE_DOCTESTS} || ${ENABLE_UNITTESTS} || ${ENABLE_COVERAGE} && ENABLE_NOSE=true
 XUNIT_FILE="nosetests.xml"
 COVERAGE_FILE="coverage.xml"
 export PYTHONPATH="$(pwd)/${SOURCES_FOLDER}:$(pwd):${PYTHONPATH}"  # PYTHONPATH for imports
@@ -208,7 +209,7 @@ if [[ -n ${show_help+x} ]]; then
     [[ ${ENABLE_DOCTESTS} == true ]] && echo -e "  -d, --doctests: Run doctests with Nose."
     [[ ${ENABLE_UNITTESTS} == true ]] && echo -e "  -u, --unittests: Run unit tests with Nose."
     [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -c, --coverage: Run coverage tests with Nose."
-    [[ ${ENABLE_BDD} == true ]] && echo -e "  -b, --bdd: Run BDD tests with Nose."
+    [[ ${ENABLE_BDD} == true ]] && echo -e "  -b, --bdd: Run BDD tests with Behave."
     [[ ${ENABLE_SONAR} == true ]] && echo -e "  -s, --sonar: Send results into SonarQube.\n"
     echo -e "Will run run everything but selected tools:"
     echo -e "  -np, --no-pylint: Do not run PyLint."
@@ -216,7 +217,7 @@ if [[ -n ${show_help+x} ]]; then
     [[ ${ENABLE_DOCTESTS} == true ]] && echo -e "  -nd, --no-doctests: Do not run doctests with Nose."
     [[ ${ENABLE_UNITTESTS} == true ]] && echo -e "  -nu, --no-unittests: Do not run unit tests with Nose."
     [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -nc, --no-coverage: Do not run coverage tests with Nose."
-    [[ ${ENABLE_BDD} == true ]] && echo -e "  -nb, --no-bdd: Do not run BDD tests with Nose."
+    [[ ${ENABLE_BDD} == true ]] && echo -e "  -nb, --no-bdd: Do not run BDD tests with Behave."
     [[ ${ENABLE_SONAR} == true ]] && echo -e "  -ns, --no-sonar: Do not send results into SonarQube.\n"
     echo -e "  -f: Run PyLint and MyPy only on selected file. Sonar will always run on all.\n"
     echo -e "  -tf: Run Nose only on selected files. Sonar will always run on all.\n"
@@ -262,10 +263,11 @@ fi
 open_in_browser=${open_in_browser:-false}
 no_install_requirements=${no_install_requirements:-false}
 novirtualenv=${novirtualenv:-false}
-use_nose=false; ${use_doctests} || ${use_unittests} || ${use_coverage} || ${use_bdd} && use_nose=true
+use_nose=false; ${use_doctests} || ${use_unittests} || ${use_coverage} && use_nose=true
 
-source_files=$(find "${use_file:-${SOURCES_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*")
-test_files=$(find "${use_testfile:-${TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*")
+source_files=$(find "${use_file:-${SOURCES_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
+unit_test_files=$(find "${use_testfile:-${UNIT_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
+bdd_test_files=$(find "${use_testfile:-${BDD_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 
 if [[ -z ${no_virtualenv+x} ]]; then
     if [[ ! -d "${VENV}" ]]; then
@@ -324,7 +326,7 @@ if [[ ${no_install_requirements} == false ]]; then
     pip_install_if ${ENABLE_TYPES} mypy
     pip_install_if ${ENABLE_NOSE} nose rednose
     pip_install_if ${ENABLE_UNITTESTS} nose-timer
-    pip_install_if ${ENABLE_BDD} aloe
+    pip_install_if ${ENABLE_BDD} behave
     pip_install_if ${ENABLE_COVERAGE} coverage
 
     if [[ "${CURRENT_OS}" =~ CYGWIN.* ]]; then
@@ -339,18 +341,25 @@ if [[ ${no_install_requirements} == false ]]; then
 
     echo -e "\nUse '-ni' command line argument to prevent installing requirements."
 fi
+
+if [[ ${use_bdd} == true ]]; then
+    echo -e "\n============================== Running behave =================================\n"
+
+    behave ${BDD_TESTS_FOLDER}
+
+    test_failed $? "Behave BDD tests"
+fi
+
 if [[ ${ENABLE_NOSE} == true && ${use_nose} == true ]]; then
     echo -e "\n============================= Running nose test ===============================\n"
 
     params=(--hide-skips --rednose -s)
     [[ ${use_unittests} == true ]] && params+=(--with-timer --timer-ok 250ms --timer-warning 1s --timer-filter warning,error)
-    [[ ${use_unittests} == true && ${use_bdd} == true ]] && params+=(--no-ignore-python)
-    [[ ${use_bdd} == true ]] && params+=(--with-gherkin)
     [[ ${use_coverage} == true ]] && params+=(--with-coverage --cover-branches --cover-html --cover-erase --cover-inclusive --cover-package="${SOURCES_FOLDER}")
     [[ ${use_sonar} == true ]] && params+=(--with-xunit --cover-xml)
     [[ ${use_doctests} == true ]] && params+=(--with-doctest --doctest-options='+ELLIPSIS,+NORMALIZE_WHITESPACE')
 
-    nosetests ${params[@]} ${test_files}
+    nosetests ${params[@]} ${unit_test_files}
 
     test_failed $? "\nNosetests"
 
@@ -367,7 +376,7 @@ if [[ ${ENABLE_TYPES} == true && ${use_typecheck} == true ]]; then
     fi
 
     # --disallow-untyped-calls
-    ${mypy_exe} --ignore-missing-imports ${source_files} ${test_files}
+    ${mypy_exe} --ignore-missing-imports ${source_files} ${unit_test_files} ${bdd_test_files}
     test_failed $? "Type checks"
 fi
 
@@ -390,11 +399,11 @@ run_pylint() {
             --output-format=colorized --method-rgx='[a-z_][a-z0-9_]{2,86}$' \
         )
         msg_template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})'
-        files=${test_files}
+        files="${unit_test_files} ${bdd_test_files}"
     elif [[ $1 == 'sonar' ]]; then  # running pylint for SonarQube
         params=(--reports=n)
         msg_template='{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}'
-        files="${source_files} ${test_files}"
+        files="${source_files} ${unit_test_files} ${bdd_test_files}"
     else  # invalid option
         test_exit 1 "Invalid pylint run type '$1'."
     fi
@@ -419,15 +428,19 @@ run_pylint() {
 }
 
 if [[ ${use_pylint} == true ]]; then
-    echo -e "\n====================== Running pylint on source code ==========================\n"
+    if [[ -n "${source_files}" ]]; then
+        echo -e "\n====================== Running pylint on source code ==========================\n"
 
-    run_pylint 'source'
-    test_failed $? "PyLint checks on source code"
+        run_pylint 'source'
+        test_failed $? "PyLint checks on source code"
+    fi
 
-    echo -e "\n========================== Running pylint on tests ============================\n"
+    if [[ -n "${unit_test_files}" || -n "${bdd_test_files}" ]]; then
+        echo -e "\n========================== Running pylint on tests ============================\n"
 
-    run_pylint 'tests'
-    test_failed $? "PyLint checks on unit tests" "\n"
+        run_pylint 'tests'
+        test_failed $? "PyLint checks on unit tests" "\n"
+    fi
 fi
 
 # Reads value from a JSON formatted file
@@ -511,7 +524,7 @@ sonar.projectKey=${SONAR_TEAM}:${sonar_project_no_spaces}_${sonar_username}
 sonar.projectName=${SONAR_PROJECT} (${sonar_username})
 sonar.projectVersion=${SONAR_PROJECT_VERSION}
 sonar.sources=.
-sonar.coverage.exclusions=cover/**,${TESTS_FOLDER}/**
+sonar.coverage.exclusions=cover/**,${UNIT_TESTS_FOLDER}/**,${BDD_TESTS_FOLDER}/**
 sonar.inclusions=${SOURCES_FOLDER}/**
 sonar.login=${sonar_username}
 sonar.password=${sonar_password}" >"${SONAR_FILE}"
@@ -525,7 +538,7 @@ sonar.password=${sonar_password}" >"${SONAR_FILE}"
 
     if [[ ! -f "${XUNIT_FILE}" ]]; then
         echo -n "Running unit tests ... "
-        nosetests --xunit-file= --with-xunit -q $(find "${TESTS_FOLDER}" -name "*.py") >/dev/null 2>&1
+        nosetests --xunit-file= --with-xunit -q $(find "${UNIT_TESTS_FOLDER}" -name "*.py") >/dev/null 2>&1
         echo -e "${GREEN}Done${NC}."
     fi
 
@@ -533,7 +546,7 @@ sonar.password=${sonar_password}" >"${SONAR_FILE}"
         # Output from nosetest has different paths than from coverage directly
         # and SonarQube does not parse the nosetest output correctly :(
         echo -n "Running coverage ... "
-        coverage run --branch --source="${SOURCES_FOLDER}" -m unittest $(find "${TESTS_FOLDER}" -name "*.py") >/dev/null 2>&1
+        coverage run --branch --source="${SOURCES_FOLDER}" -m unittest $(find "${UNIT_TESTS_FOLDER}" -name "*.py") >/dev/null 2>&1
         coverage xml -i -o "${COVERAGE_FILE}"
         echo -e "${GREEN}Done${NC}."
     fi
