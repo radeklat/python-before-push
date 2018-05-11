@@ -441,7 +441,7 @@ if [[ ${use_pylint} == true ]]; then
         echo -e "\n========================== Running pylint on tests ============================\n"
 
         run_pylint 'tests'
-        test_failed $? "PyLint checks on unit tests" "\n"
+        test_failed $? "PyLint checks on tests" "\n"
     fi
 fi
 
