@@ -46,7 +46,7 @@ VENV=".venv_${CURRENT_OS}"
 PYTHON_EXE=""
 
 # OS DEPENDENT RUNTIME GLOBALS
-if [[ "${CURRENT_OS}" =~ CYGWIN.*  || "${CURRENT_OS}" =~ MINGW.* ]]; then
+if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
     PYTHONS=("python3.exe" "python.exe")
     VENV_ACTIVATE="${VENV}/Scripts/activate"
     COVER_PATH="$(cygpath.exe -w "$(pwd)")"
@@ -150,7 +150,7 @@ check_supported_python_version() {
         printf "%03d%03d%03d%03d" $(echo "$1" | tr '.' ' ')
     }
     local py_version="$(${PYTHON_EXE} --version 2>&1 | cut -d ' ' -f 2)"
-    [[ "${CURRENT_OS}" =~ CYGWIN.*  || "${CURRENT_OS}" =~ MINGW.* ]] && py_version="$(echo ${py_version} | tr --delete '\r')"
+    [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]] && py_version="$(echo ${py_version} | tr --delete '\r')"
     [[ $(ver "${py_version}") -ge $(ver "${MIN_PYTHON_VERSION}") && $(ver "${py_version}") -le $(ver "${MAX_PYTHON_VERSION}") ]]
     test_exit $? "Python version ${py_version} is not supported. Supported versions range is <${MIN_PYTHON_VERSION}, ${MAX_PYTHON_VERSION}>.\nUse '-pe' option to specify different python executable."
 }
@@ -330,7 +330,7 @@ if [[ ${no_install_requirements} == false ]]; then
     pip_install_if ${ENABLE_BDD} behave
     pip_install_if ${ENABLE_COVERAGE} coverage
 
-    if [[ "${CURRENT_OS}" =~ CYGWIN.*  || "${CURRENT_OS}" =~ MINGW.* ]]; then
+    if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
         ${PIP_EXE} install --upgrade pypiwin32
         test_exit $? "Failed to install pypiwin32 via pip."
     fi
@@ -372,7 +372,7 @@ if [[ ${ENABLE_TYPES} == true && ${use_typecheck} == true ]]; then
     echo -e "\n============================ Running type check ===============================\n"
 
     mypy_exe="mypy"
-    if [[ "${CURRENT_OS}" =~ CYGWIN.*  || "${CURRENT_OS}" =~ MINGW.* ]]; then
+    if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
         mypy_exe="${PYTHON_EXE} ${VENV}/Lib/site-packages/mypy/"
     fi
 
