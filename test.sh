@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
 cd "${ROOT_FOLDER}"
