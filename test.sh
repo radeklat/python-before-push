@@ -430,6 +430,11 @@ run_pylint() {
 }
 
 if [[ ${use_pylint} == true ]]; then
+    if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
+        # color fix for windows terminals
+        export TERM=xterm-16color
+    fi
+
     if [[ -n "${source_files}" ]]; then
         echo -e "\n====================== Running pylint on source code ==========================\n"
 
