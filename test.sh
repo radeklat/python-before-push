@@ -1,27 +1,32 @@
 #!/usr/bin/env bash
 
-ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
-cd "${ROOT_FOLDER}"
-
-# PROJECT RELATED CONSTANTS
+### CHANGE THESE FOR YOUR PROJECT ###
 ENABLE_DOCTESTS=true
 ENABLE_UNITTESTS=true
 ENABLE_COVERAGE=true
 ENABLE_BDD=true
 ENABLE_TYPES=true
-ENABLE_SONAR=true
-SOURCES_FOLDER='src'
-SONAR_SERVER=''
+ENABLE_SONAR=false
+
 MIN_PYTHON_VERSION="3.6.5"
 MAX_PYTHON_VERSION="3.6.5"
-UNIT_TESTS_FOLDER='tests/unit'
-BDD_TESTS_FOLDER='tests/features'
+
+SOURCES_FOLDER='api'
+TESTS_FOLDER='tests'
+UNIT_TESTS_FOLDER="${TESTS_FOLDER}/unit"
+BDD_TESTS_FOLDER="${TESTS_FOLDER}/features"
+
 SONAR_SERVER='http://localhost:9000'
 SONAR_TEAM=''
 SONAR_PROJECT=''
 SONAR_PROJECT_VERSION='1.0'
 
-# SCRIPT RELATED CONSTANTS
+### DON'T CHANGE ANYTHING AFTER THIS POINT ###
+#####
+
+ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
+cd "${ROOT_FOLDER}"
+
 BRED='\033[1;31m'
 BGREEN='\033[1;32m'
 GREEN='\033[0;32m'
@@ -39,13 +44,11 @@ XUNIT_FILE="nosetests.xml"
 COVERAGE_FILE="coverage.xml"
 export PYTHONPATH="$(pwd)/${SOURCES_FOLDER}:$(pwd):${PYTHONPATH}"  # PYTHONPATH for imports
 
-# OS DEPENDANT CONSTANTS
 CURRENT_OS="$(uname -s)"
 PIPS=("pip3" "pip")
 VENV=".venv_${CURRENT_OS}"
 PYTHON_EXE=""
 
-# OS DEPENDENT RUNTIME GLOBALS
 if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
     PYTHONS=("python3.exe" "python.exe")
     VENV_ACTIVATE="${VENV}/Scripts/activate"
