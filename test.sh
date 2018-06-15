@@ -21,6 +21,15 @@ SONAR_TEAM=''
 SONAR_PROJECT=''
 SONAR_PROJECT_VERSION='1.0'
 
+GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN=''
+GITHUB_UPDATE_REPOSITORY='<owner>/<repository>/<branch>'
+GITHUB_UPDATE_TEST_SCRIPT='test.sh'
+declare -A GITHUB_UPDATE_SOURCES_TARGETS=(
+    ["test.sh"]="test.sh"
+    ["tests/.pylintrc"]="${TESTS_FOLDER}/.pylintrc"
+    ["api/.pylintrc"]="${SOURCES_FOLDER}/.pylintrc"
+)
+
 ### DON'T CHANGE ANYTHING AFTER THIS POINT ###
 #####
 
@@ -38,6 +47,8 @@ SONAR_SCANNER_ZIP_FILE="sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"
 SONAR_SCANNER_ZIP_FOLDER="sonar-scanner-${SONAR_SCANNER_VERSION}"
 SONAR_SCANNER_URL="https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/${SONAR_SCANNER_ZIP_FILE}"
 PYLINT_REPORT="pylint_report.sonar"
+[[ -n ${GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN} ]] && TOKEN="${GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN}@" || TOKEN=""
+GITHUB_UPDATE_BASE_URL="https://${TOKEN}raw.githubusercontent.com/${GITHUB_UPDATE_REPOSITORY}"
 ENABLE_NOSE=false; ${ENABLE_DOCTESTS} || ${ENABLE_UNITTESTS} || ${ENABLE_COVERAGE} && ENABLE_NOSE=true
 XUNIT_FILE="nosetests.xml"
 COVERAGE_FILE="coverage.xml"
@@ -195,6 +206,7 @@ while [[ "$#" > 0 ]]; do
         -h|--help) show_help=true;;
         -ni|--noinstall) no_install_requirements=true;;
         -nv|--novirtualenv) no_virtualenv=true;;
+        --no-update) no_update=true;;
         -pe|--python) PYTHON_EXE="$2"; shift;;
         --strict) fail_strict=true;;
         *) test_exit 1 "Unknown option '$1'. Run program with -h or --help for help.";;
@@ -227,6 +239,7 @@ if [[ -n ${show_help+x} ]]; then
     [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -o, --browser: Open coverage results in browser."
     echo -e "  -ni, --noinstall: Do not install requirements and dependencies.\n"
     echo -e "  -nv, --novirtualenv: Do not create/use virtualenv."
+    echo -e "  --no-update: Don't update team related files."
     echo -e "  -pe, --python: Specify python executable to use for virtualenv."
     echo -e "  --strict: If used, exit code will be non-zero if any test fails. Otherwise only if SonarQube quality gate fails."
     exit 255
@@ -266,11 +279,40 @@ fi
 open_in_browser=${open_in_browser:-false}
 no_install_requirements=${no_install_requirements:-false}
 no_virtualenv=${no_virtualenv:-false}
+no_update=${no_update:-false}
 use_nose=false; ${use_doctests} || ${use_unittests} || ${use_coverage} && use_nose=true
 
 source_files=$(find "${use_file:-${SOURCES_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 unit_test_files=$(find "${use_testfile:-${UNIT_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 bdd_test_files=$(find "${use_testfile:-${BDD_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
+
+if [[ ${no_update} == false && -n ${GITHUB_UPDATE_REPOSITORY} && ${#GITHUB_UPDATE_SOURCES_TARGETS[@]} -gt 0 ]]; then
+    echo -e "\n============================ Updating team files ==============================\n"
+
+    for source_file in "${!GITHUB_UPDATE_SOURCES_TARGETS[@]}"; do
+        url="${GITHUB_UPDATE_BASE_URL}/${source_file}"
+        target_file="${GITHUB_UPDATE_SOURCES_TARGETS[${source_file}]}"
+        target_path="$(dirname "${target_file}")"
+        success_msg="File '${target_file}' updated."
+        fail_msg="File '$source_file' from '${GITHUB_UPDATE_REPOSITORY}' repository could not be updated.\nCheck error output above."
+        downloaded_file=$(mktemp)
+
+        # Download is faster than checking if file has been modified via API
+        curl_output=$(curl --fail -o "${downloaded_file}" "${url}" 2>&1)
+        test_exit $? "${curl_output}\n\n${fail_msg}" "${success_msg}"
+
+        mkdir -p "${target_path}"
+        if [[ ${source_file} == ${GITHUB_UPDATE_TEST_SCRIPT} ]]; then
+            merged_file=$(mktemp)
+            grep -Eoz ".*#{5}" "${target_file}" >"${merged_file}"
+            grep -Eoz "#{5}.*" "${downloaded_file}" >>"${merged_file}"
+            mv "${merged_file}" "${target_file}"
+            rm "${downloaded_file}"
+        else
+            mv "${downloaded_file}" "${target_file}"
+        fi
+    done
+fi
 
 if [[ ${no_virtualenv} == false ]]; then
     if [[ ! -d "${VENV}" ]]; then
