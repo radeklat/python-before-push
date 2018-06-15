@@ -263,14 +263,14 @@ fi
 
 open_in_browser=${open_in_browser:-false}
 no_install_requirements=${no_install_requirements:-false}
-novirtualenv=${novirtualenv:-false}
+no_virtualenv=${no_virtualenv:-false}
 use_nose=false; ${use_doctests} || ${use_unittests} || ${use_coverage} && use_nose=true
 
 source_files=$(find "${use_file:-${SOURCES_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 unit_test_files=$(find "${use_testfile:-${UNIT_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 bdd_test_files=$(find "${use_testfile:-${BDD_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 
-if [[ -z ${no_virtualenv+x} ]]; then
+if [[ ${no_virtualenv} == false ]]; then
     if [[ ! -d "${VENV}" ]]; then
         check_supported_python_version
 
@@ -563,7 +563,7 @@ sonar.login=${sonar_token}" >"${SONAR_FILE}"
     cp "${XUNIT_FILE}" "dist/${XUNIT_FILE}"
 fi
 
-if [[ -z ${no_virtualenv+x} ]]; then
+if [[ ${no_virtualenv} == false ]]; then
     deactivate
 fi
 
