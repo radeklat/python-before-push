@@ -31,7 +31,6 @@ BRED='\033[1;31m'
 BGREEN='\033[1;32m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
-PYLINTRC='.pylintrc'
 SONAR_FILE='sonar-project.properties'
 SONAR_REPORT='sonar_report.json'
 SONAR_SCANNER_VERSION="3.1.0.1141"
@@ -319,7 +318,6 @@ gitignore_if_not_ignored () {
 }
 
 gitignore_if_not_ignored true '.venv_*'
-gitignore_if_not_ignored true '.pylintrc'
 gitignore_if_not_ignored true '.idea/sonarlint'
 gitignore_if_not_ignored ${ENABLE_COVERAGE} 'cover'
 gitignore_if_not_ignored ${ENABLE_TYPES} '.mypy_cache/'
@@ -386,27 +384,20 @@ fi
 
 # $1 = 'source', 'tests', 'sonar'
 run_pylint() {
-    if [[ ! -f "${PYLINTRC}" ]]; then
-        # create default file to prevent automatic picking up an unexpected one
-        pylint --generate-rcfile >"${PYLINTRC}"
-    fi
-
     # unused-import disabled because it is picking up typing imports. Fix is coming.
 
     msg_template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})'
+    params=()
 
     if [[ $1 == 'source' ]]; then  # running pylint for source code
-        params=(--disable=unused-import,missing-docstring --output-format=colorized)
+        export PYLINTRC="${SOURCES_FOLDER}/.pylintrc"
         files=${source_files}
     elif [[ $1 == 'tests' ]]; then  # running pylint for tests code
-        params=(\
-            --disable=unused-import,missing-docstring,protected-access \
-            --ignored-modules=behave \
-            --output-format=colorized --method-rgx='[a-z_][a-z0-9_]{2,86}$' \
-        )
+        export PYLINTRC="${TESTS_FOLDER}/.pylintrc"
+        params=(--disable=protected-access)
         files="${unit_test_files} ${bdd_test_files}"
     elif [[ $1 == 'sonar' ]]; then  # running pylint for SonarQube
-        params=(--reports=n)
+        params=(--reports=n --output-format=text)
         msg_template='{path}:{line}: [{msg_id}({symbol}), {obj}] {msg}'
         files="${source_files} ${unit_test_files} ${bdd_test_files}"
     else  # invalid option
@@ -415,18 +406,66 @@ run_pylint() {
 
     pylint --disable="all,RP0001,RP0002,RP0003,RP0101,RP0401,RP0701,RP0801" \
         --enable="F,E,W,R,C" --msg-template="${msg_template}" \
-        --disable='missing-type-doc,missing-returns-doc,missing-return-type-doc,missing-yield-doc,missing-yield-type-doc' \
+        --disable='
+        missing-docstring,
+        missing-type-doc,
+        missing-returns-doc,
+        missing-return-type-doc,
+        missing-yield-doc,
+        missing-yield-type-doc,
+
+        unused-import,
+
+        apply-builtin,
+        backtick,
+        basestring-builtin,
+        buffer-builtin,
+        cmp-builtin,
+        cmp-method,
+        coerce-builtin,
+        coerce-method,
+        delslice-method,
+        dict-iter-method,
+        dict-view-method,
+        execfile-builtin,
+        file-builtin,
+        filter-builtin-not-iterating,
+        getslice-method,
+        hex-method,
+        import-star-module-level,
+        indexing-exception,
+        input-builtin,
+        intern-builtin,
+        long-builtin,
+        long-suffix,
+        map-builtin-not-iterating,
+        metaclass-assignment,
+        next-method-called,
+        no-absolute-import,
+        nonzero-method,
+        oct-method,
+        old-division,
+        old-ne-operator,
+        old-octal-literal,
+        old-raise-syntax,
+        parameter-unpacking,
+        print-statement,
+        raising-string,
+        range-builtin-not-iterating,
+        raw_input-builtin,
+        reduce-builtin,
+        reload-builtin,
+        round-builtin,
+        setslice-method,
+        standarderror-builtin,
+        unichr-builtin,
+        unicode-builtin,
+        unpacking-in-except,
+        using-cmp-argument,
+        xrange-builtin,
+        zip-builtin-not-iterating
+        ' \
         --evaluation="10.0 - ((float(20 * fatal + 10 * error + 5 * warning + 2 * refactor + convention) / statement) * 10)" \
-        --rcfile="${PYLINTRC}" \
-        --max-line-length=92 \
-        --dummy-variables-rgx="(_+[a-zA-Z0-9_]*?$)|args|kwargs" \
-        --good-names="i,j,k,e,ex,fd,Run,_" \
-        --min-public-methods=1 \
-        --deprecated-modules='optprase,six' \
-        --known-standard-library='typing,winreg,distutils,importlib' \
-        --load-plugins=pylint.extensions.docparams,pylint.extensions.mccabe \
-        --max-complexity=15 \
-        --extension-pkg-whitelist=pycurl,win32event,win32service,servicemanager,socket \
         ${params[@]} --enable='suppressed-message,useless-suppression' ${files}
 
     return $?
