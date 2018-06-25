@@ -304,7 +304,7 @@ if [[ ${no_update} == false && -n ${GITHUB_UPDATE_REPOSITORY} && ${#GITHUB_UPDAT
         mkdir -p "${target_path}"
         if [[ ${source_file} == ${GITHUB_UPDATE_TEST_SCRIPT} ]]; then
             merged_file=$(mktemp)
-            grep -Eoz ".*#{5}" "${target_file}" >"${merged_file}"
+            grep -Eoz ".*#{5}" "${target_file}" | sed -E 's/#{5,} *//g' >"${merged_file}"
             grep -Eoz "#{5}.*" "${downloaded_file}" >>"${merged_file}"
             mv "${merged_file}" "${target_file}"
             rm "${downloaded_file}"
@@ -403,7 +403,7 @@ if [[ ${ENABLE_NOSE} == true && ${use_nose} == true ]]; then
     [[ ${use_sonar} == true ]] && params+=(--with-xunit --cover-xml)
     [[ ${use_doctests} == true ]] && params+=(--with-doctest --doctest-options='+ELLIPSIS,+NORMALIZE_WHITESPACE')
 
-    nosetests ${params[@]} ${unit_test_files}
+    nosetests ${params[@]} ${UNIT_TESTS_FOLDER}/*
 
     test_failed $? "\nNosetests"
 
