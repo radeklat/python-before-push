@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 
-### CHANGE THESE FOR YOUR PROJECT ###
+### PROJECT DEFAULTS ###
+# To override these values, use the --generate-rc-file switch and modify the generated file
+
 ENABLE_DOCTESTS=true
 ENABLE_UNITTESTS=true
 ENABLE_COVERAGE=true
 ENABLE_BDD=true
 ENABLE_TYPES=true
+ENABLE_TODOS=true
 ENABLE_SONAR=false
 
 MIN_PYTHON_VERSION="3.6.5"
@@ -25,13 +28,15 @@ GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN=''
 GITHUB_UPDATE_REPOSITORY='<owner>/<repository>/<branch>'
 GITHUB_UPDATE_TEST_SCRIPT='test.sh'
 declare -A GITHUB_UPDATE_SOURCES_TARGETS=(
-    ["test.sh"]="test.sh"
+    ["${GITHUB_UPDATE_TEST_SCRIPT}"]="$(basename "$0")"
     ["tests/.pylintrc"]="${TESTS_FOLDER}/.pylintrc"
     ["api/.pylintrc"]="${SOURCES_FOLDER}/.pylintrc"
 )
 
+COVERAGE_MIN_PERCENTAGE=0
+TODOS_LIMIT_PER_PERSON=10
+
 ### DON'T CHANGE ANYTHING AFTER THIS POINT ###
-#####
 
 ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
 cd "${ROOT_FOLDER}"
@@ -47,11 +52,22 @@ SONAR_SCANNER_ZIP_FILE="sonar-scanner-cli-${SONAR_SCANNER_VERSION}.zip"
 SONAR_SCANNER_ZIP_FOLDER="sonar-scanner-${SONAR_SCANNER_VERSION}"
 SONAR_SCANNER_URL="https://sonarsource.bintray.com/Distribution/sonar-scanner-cli/${SONAR_SCANNER_ZIP_FILE}"
 PYLINT_REPORT="pylint_report.sonar"
+TEST_RC_FILE=".testrc"
+declare -A TEST_RC_FILE_HEAD_OFFSET=( ["start"]=6 ["end"]=35 )
+XUNIT_FILE="nosetests.xml"
+COVERAGE_FILE="coverage.xml"
+
+if [[ -f ${TEST_RC_FILE} ]]; then
+    echo "Using '${TEST_RC_FILE}'."
+    source ${TEST_RC_FILE}
+else
+    echo "No '${TEST_RC_FILE}' found. Using global values. You can generate one with --generate-rc-file."
+fi
+
 [[ -n ${GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN} ]] && TOKEN="${GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN}@" || TOKEN=""
 GITHUB_UPDATE_BASE_URL="https://${TOKEN}raw.githubusercontent.com/${GITHUB_UPDATE_REPOSITORY}"
 ENABLE_NOSE=false; ${ENABLE_DOCTESTS} || ${ENABLE_UNITTESTS} || ${ENABLE_COVERAGE} && ENABLE_NOSE=true
-XUNIT_FILE="nosetests.xml"
-COVERAGE_FILE="coverage.xml"
+
 export PYTHONPATH="$(pwd)/${SOURCES_FOLDER}:$(pwd):${PYTHONPATH}"  # PYTHONPATH for imports
 
 CURRENT_OS="$(uname -s)"
@@ -193,6 +209,7 @@ while [[ "$#" > 0 ]]; do
         -u|--unittests) use_unittests=true;;
         -c|--coverage) use_coverage=true;;
         -b|--bdd) use_bdd=true;;
+        --todo) use_todos=true;;
         -s|--sonar) use_sonar=true;;
         -np|--no-pylint) use_pylint=false;;
         -nt|--no-types) use_typecheck=false;;
@@ -200,15 +217,18 @@ while [[ "$#" > 0 ]]; do
         -nu|--no-unittests) use_unittests=false;;
         -nc|--no-coverage) use_coverage=false;;
         -nb|--no-bdd) use_bdd=false;;
+        --no-todo) use_todos=false;;
         -ns|--sonar) use_sonar=false;;
         -f) use_file="$2"; shift;;
         -tf) use_testfile="$2"; shift;;
         -h|--help) show_help=true;;
         -ni|--noinstall) no_install_requirements=true;;
         -nv|--novirtualenv) no_virtualenv=true;;
+        --update) do_update=true;;
         --no-update) no_update=true;;
         -pe|--python) PYTHON_EXE="$2"; shift;;
         --strict) fail_strict=true;;
+        --generate-rc-file) generate_rc_file=true;;
         *) test_exit 1 "Unknown option '$1'. Run program with -h or --help for help.";;
     esac
     shift
@@ -223,25 +243,29 @@ if [[ -n ${show_help+x} ]]; then
     [[ ${ENABLE_TYPES} == true ]] && echo -e "  -t, --types: Run Mypy for checking types usage."
     [[ ${ENABLE_DOCTESTS} == true ]] && echo -e "  -d, --doctests: Run doctests with Nose."
     [[ ${ENABLE_UNITTESTS} == true ]] && echo -e "  -u, --unittests: Run unit tests with Nose."
-    [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -c, --coverage: Run coverage tests with Nose."
+    [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -c, --coverage: Run coverage tests."
     [[ ${ENABLE_BDD} == true ]] && echo -e "  -b, --bdd: Run BDD tests with Behave."
+    [[ ${ENABLE_TODOS} == true ]] && echo -e "  --todo: Run check of TODOs."
     [[ ${ENABLE_SONAR} == true ]] && echo -e "  -s, --sonar: Send results into SonarQube.\n"
     echo -e "Will run run everything but selected tools:"
     echo -e "  -np, --no-pylint: Do not run PyLint."
     [[ ${ENABLE_TYPES} == true ]] && echo -e "  -nt, --no-types: Do not run Mypy for checking types usage."
     [[ ${ENABLE_DOCTESTS} == true ]] && echo -e "  -nd, --no-doctests: Do not run doctests with Nose."
     [[ ${ENABLE_UNITTESTS} == true ]] && echo -e "  -nu, --no-unittests: Do not run unit tests with Nose."
-    [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -nc, --no-coverage: Do not run coverage tests with Nose."
+    [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -nc, --no-coverage: Do not run coverage tests."
     [[ ${ENABLE_BDD} == true ]] && echo -e "  -nb, --no-bdd: Do not run BDD tests with Behave."
+    [[ ${ENABLE_TODOS} == true ]] && echo -e "  --no-todo: Do not run check of TODOs."
     [[ ${ENABLE_SONAR} == true ]] && echo -e "  -ns, --no-sonar: Do not send results into SonarQube.\n"
     echo -e "  -f: Run PyLint and MyPy only on selected file. Sonar will always run on all.\n"
     echo -e "  -tf: Run Nose only on selected files. Sonar will always run on all.\n"
     [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -o, --browser: Open coverage results in browser."
     echo -e "  -ni, --noinstall: Do not install requirements and dependencies.\n"
     echo -e "  -nv, --novirtualenv: Do not create/use virtualenv."
+    echo -e "  --update: Only update team related files, then exit."
     echo -e "  --no-update: Don't update team related files."
     echo -e "  -pe, --python: Specify python executable to use for virtualenv."
     echo -e "  --strict: If used, exit code will be non-zero if any test fails. Otherwise only if SonarQube quality gate fails."
+    echo -e "  --generate-rc-file: Generate RC file for this test script. This file allows to override default settings."
     exit 255
 fi
 
@@ -255,13 +279,15 @@ set_default_values() {
     use_unittests=${use_unittests:-${default}}
     use_coverage=${use_coverage:-${default}}
     use_bdd=${use_bdd:-${default}}
+    use_todos=${use_todos:-${default}}
     use_sonar=${use_sonar:-${default}}
 }
 
 # set everything to true by default, leave only explicitly disabled as false
 if [[ ${use_pylint:-false} == false && ${use_typecheck:-false} == false && \
       ${use_unittests:-false} == false && ${use_coverage:-false} == false && \
-      ${use_bdd:-false} == false && ${use_sonar:-false} == false && ${use_doctests:-false} == false ]]
+      ${use_bdd:-false} == false && ${use_sonar:-false} == false && \
+      ${use_doctests:-false} == false && ${use_todos:-false} == false ]]
 then
     set_default_values true
 else # only some tests selected, set the rest to false if not defined
@@ -274,19 +300,34 @@ fi
 [[ ${ENABLE_UNITTESTS} == false ]] && use_unittests=false
 [[ ${ENABLE_COVERAGE} == false ]] && use_coverage=false
 [[ ${ENABLE_BDD} == false ]] && use_bdd=false
+[[ ${ENABLE_TODOS} == false ]] && use_todos=false
 [[ ${ENABLE_SONAR} == false ]] && use_sonar=false
 
 open_in_browser=${open_in_browser:-false}
 no_install_requirements=${no_install_requirements:-false}
 no_virtualenv=${no_virtualenv:-false}
+do_update=${do_update:-false}
 no_update=${no_update:-false}
-use_nose=false; ${use_doctests} || ${use_unittests} || ${use_coverage} && use_nose=true
+use_nose=false; ${use_doctests} || ${use_unittests} && use_nose=true
+generate_rc_file=${generate_rc_file:-false}
 
 source_files=$(find "${use_file:-${SOURCES_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 unit_test_files=$(find "${use_testfile:-${UNIT_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 bdd_test_files=$(find "${use_testfile:-${BDD_TESTS_FOLDER}}" -name "*.py" ! -regex "\.\/\.venv_.*" 2>/dev/null)
 
-if [[ ${no_update} == false && -n ${GITHUB_UPDATE_REPOSITORY} && ${#GITHUB_UPDATE_SOURCES_TARGETS[@]} -gt 0 ]]; then
+if [[ ${generate_rc_file} == true ]]; then
+    echo -e "# Uncomment only lines you need to change.\n" >${TEST_RC_FILE}
+
+    head -n ${TEST_RC_FILE_HEAD_OFFSET["end"]} $0 | \
+    tail -n +${TEST_RC_FILE_HEAD_OFFSET["start"]} | \
+    sed 's/\(..*\)/#\1/' \
+    >>${TEST_RC_FILE}
+
+    echo "Test RC file generated into '${TEST_RC_FILE}'."
+    exit 0
+fi
+
+if [[ ${no_update} == false && -n ${GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN} && ${#GITHUB_UPDATE_SOURCES_TARGETS[@]} -gt 0 ]]; then
     echo -e "\n============================ Updating team files ==============================\n"
 
     for source_file in "${!GITHUB_UPDATE_SOURCES_TARGETS[@]}"; do
@@ -302,16 +343,10 @@ if [[ ${no_update} == false && -n ${GITHUB_UPDATE_REPOSITORY} && ${#GITHUB_UPDAT
         test_exit $? "${curl_output}\n\n${fail_msg}" "${success_msg}"
 
         mkdir -p "${target_path}"
-        if [[ ${source_file} == ${GITHUB_UPDATE_TEST_SCRIPT} ]]; then
-            merged_file=$(mktemp)
-            grep -Eoz ".*#{5}" "${target_file}" | sed -E 's/#{5,} *//g' >"${merged_file}"
-            grep -Eoz "#{5}.*" "${downloaded_file}" >>"${merged_file}"
-            mv "${merged_file}" "${target_file}"
-            rm "${downloaded_file}"
-        else
-            mv "${downloaded_file}" "${target_file}"
-        fi
+        mv "${downloaded_file}" "${target_file}"
     done
+
+    [[ ${do_update} == true ]] && exit 0
 fi
 
 if [[ ${no_virtualenv} == false ]]; then
@@ -349,21 +384,6 @@ pip_install_if () {
     test_exit $? "Failed to install required dependencies via pip."
 }
 
-# Check usage flag and adds entry to .gitignore, if not already gitignored
-# $1 = flag to check. if se to false, nothig will be checked/added
-# $2 = entry to check/put in .gitignore
-gitignore_if_not_ignored () {
-    [[ $1 == false ]] && return 1
-    [[ ! -f .gitignore ]] && touch .gitignore
-    pattern="$(echo "${2}" | sed -E 's/([.*{[}]|])/\\\1/g')"
-    [[ $(grep -q "^${pattern}$" .gitignore; echo $?) -ne 0 ]] && echo "${2}" >>.gitignore
-}
-
-gitignore_if_not_ignored true '.venv_*'
-gitignore_if_not_ignored true '.idea/sonarlint'
-gitignore_if_not_ignored ${ENABLE_COVERAGE} 'cover'
-gitignore_if_not_ignored ${ENABLE_TYPES} '.mypy_cache/'
-
 if [[ ${no_install_requirements} == false ]]; then
     echo -e "\n========================== Refreshing dependencies ============================\n"
     pip_install_if true pylint
@@ -378,10 +398,12 @@ if [[ ${no_install_requirements} == false ]]; then
         test_exit $? "Failed to install pypiwin32 via pip."
     fi
 
-    if [[ -f "requirements.txt" ]]; then
-        ${PIP_EXE} install --upgrade -r 'requirements.txt'
-        test_exit $? "Failed to install requirements via pip."
-    fi
+    for requirements_file_name in requirements*.txt; do
+        if [[ -f "${requirements_file_name}" ]]; then
+            ${PIP_EXE} install --upgrade -r "${requirements_file_name}"
+            test_exit $? "Failed to install requirements via pip from '${requirements_file_name}'."
+        fi
+    done
 
     echo -e "\nUse '-ni' command line argument to prevent installing requirements."
 fi
@@ -399,13 +421,23 @@ if [[ ${ENABLE_NOSE} == true && ${use_nose} == true ]]; then
 
     params=(--hide-skips --rednose -s)
     [[ ${use_unittests} == true ]] && params+=(--with-timer --timer-ok 250ms --timer-warning 1s --timer-filter warning,error)
-    [[ ${use_coverage} == true ]] && params+=(--with-coverage --cover-branches --cover-html --cover-erase --cover-inclusive --cover-package="${SOURCES_FOLDER}")
     [[ ${use_sonar} == true ]] && params+=(--with-xunit --cover-xml)
     [[ ${use_doctests} == true ]] && params+=(--with-doctest --doctest-options='+ELLIPSIS,+NORMALIZE_WHITESPACE')
 
     nosetests ${params[@]} ${UNIT_TESTS_FOLDER}/*
 
     test_failed $? "\nNosetests"
+fi
+
+if [[ ${ENABLE_COVERAGE} == true && ${use_coverage} == true ]]; then
+    echo -e "\n=========================== Running coverage test =============================\n"
+
+    coverage run --branch --source="${SOURCES_FOLDER}" -m unittest discover -q -s "${UNIT_TESTS_FOLDER}"
+    coverage report --skip-covered --fail-under=${COVERAGE_MIN_PERCENTAGE:-0}
+
+    test_failed $? "\nTest for minimum coverage of ${COVERAGE_MIN_PERCENTAGE:-0}%"
+
+    coverage html -d cover
 
     # open in default browser
     [[ ${open_in_browser} == true ]] && ${WEBSITE_OPENER} "${COVER_PATH}/cover/index.html"
@@ -531,6 +563,33 @@ if [[ ${use_pylint} == true ]]; then
 
         run_pylint 'tests'
         test_failed $? "PyLint checks on tests" "\n"
+    fi
+fi
+
+if [[ ${use_todos} == true ]]; then
+    echo -e "\n=========================== Running TODOs check ===============================\n"
+
+    todos="$(grep -Enr 'TODO *[(:]' ${SOURCES_FOLDER} ${TESTS_FOLDER} | tr -s ' ')"
+    unnamed_todos=$(echo "${todos}" | grep -E "TODO[^(]*:")
+    named_todos=$(echo "${todos}" | grep -E "TODO *\([^)]*\):")
+    name_counts="$(echo "${named_todos}" | sed 's/.*TODO *(\([^)]*\)).*/\1/' |
+                   tr '[:upper:]' '[:lower:]' | sort | uniq -c |
+                   awk '{print toupper(substr($2,0,1))tolower(substr($2,2))": "$1}')"
+    ok_todos="$(echo "${name_counts}" | awk -v limit=${TODOS_LIMIT_PER_PERSON} '$2 <= limit{print $0}')"
+    too_many_todos="$(echo "${name_counts}" | awk -v limit=${TODOS_LIMIT_PER_PERSON} '$2 > limit{print $0}')"
+
+    [[ $(echo "${named_todos}" | wc -c) -gt 1 ]] && echo -e "All named TODOs:\n\n${named_todos}"
+
+    if [[ $(echo "${unnamed_todos}" | wc -c) -gt 1 ]]; then
+        echo -e "\nUnnamed TODOs:\n\n${unnamed_todos}\n"
+        test_failed 1 "All TODOs must be named (# TODO(<name>): <comment>). Test"
+    fi
+
+    [[ $(echo "${named_todos}" | wc -c) -gt 1 ]] && echo -e "\nTODO counts per person (maximum is ${TODOS_LIMIT_PER_PERSON}):\n\n${ok_todos}\n"
+
+    if [[ $(echo "${too_many_todos}" | wc -c) -gt 1 ]]; then
+        echo -e "Too many TODOs per person (maximum is ${TODOS_LIMIT_PER_PERSON}):\n\n${too_many_todos}\n"
+        test_failed 1 "Every person must have at most ${TODOS_LIMIT_PER_PERSON} TODOs. Test"
     fi
 fi
 
