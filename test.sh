@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=2.7.0
+VERSION=2.7.1
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -328,9 +328,14 @@ fi
 # $@ = library names
 fail_if_enabled_but_not_installed () {
     [[ $1 == false ]] && return 1
+
     shift
-    ${PIP_EXE} show $@ >/dev/null
-    test_exit $? "'$@' not installed but required by this script. Add it to your requirements-test.txt file."
+    while [[ -n "$1" ]]; do
+        echo -n "Checking '$1' is installed ... "
+        ${PIP_EXE} show $1 >/dev/null 2>&1
+        test_exit $? "not installed but required by this script. Add it to your requirements-test.txt file." "OK"
+        shift
+    done
 }
 
 if [[ ${no_install_requirements} == false ]]; then
@@ -348,16 +353,16 @@ if [[ ${no_install_requirements} == false ]]; then
         fi
     done
 
+    fail_if_enabled_but_not_installed true pylint
+    fail_if_enabled_but_not_installed ${ENABLE_TYPES} mypy
+    fail_if_enabled_but_not_installed ${ENABLE_UNITTESTS} pytest pytest-cov pytest-xdist
+    fail_if_enabled_but_not_installed ${ENABLE_BDD} behave
+    fail_if_enabled_but_not_installed ${ENABLE_COVERAGE} coverage
+
     echo -e "\nUse '-ni' command line argument to prevent installing requirements."
 
     [[ ${do_install_requirements} == true ]] && exit 0
 fi
-
-fail_if_enabled_but_not_installed true pylint
-fail_if_enabled_but_not_installed ${ENABLE_TYPES} mypy
-fail_if_enabled_but_not_installed ${ENABLE_UNITTESTS} pytest
-fail_if_enabled_but_not_installed ${ENABLE_BDD} behave
-fail_if_enabled_but_not_installed ${ENABLE_COVERAGE} coverage
 
 if [[ ${CREATE_NEW_COVERAGE} == true ]]; then
     rm .coverage
@@ -371,10 +376,12 @@ if [[ ${use_bdd} == true ]]; then
     test_failed $? "Behave BDD tests"
 fi
 
+[[ ${use_coverage} == true ]] && coverage_pytest_args="--cov=\"${SOURCES_FOLDER}\" --cov-append --cov-report= "
+
 if [[ ${ENABLE_UNITTESTS} == true && ${use_unittests} == true ]]; then
     echo -e "\n============================= Running unit tests ===============================\n"
 
-    pytest -n auto --cov="${SOURCES_FOLDER}" --cov-append --cov-report= -v --junitxml=unit_test_results.xml ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
+    pytest -n auto -v --junitxml=unit_test_results.xml ${coverage_pytest_args} ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
 
     test_failed $? "\nUnittests"
 fi
