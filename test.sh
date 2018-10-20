@@ -14,18 +14,18 @@ ENABLE_TODOS=true
 MIN_PYTHON_VERSION="3.6.5"
 MAX_PYTHON_VERSION="3.6.6"
 
-SOURCES_FOLDER='api'
+SOURCES_FOLDER='src'
 TESTS_FOLDER='tests'
 UNIT_TESTS_FOLDER="${TESTS_FOLDER}/unit"
 BDD_TESTS_FOLDER="${TESTS_FOLDER}/features"
 
 GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN=''
-GITHUB_UPDATE_REPOSITORY='<owner>/<repository>/<branch>'
+GITHUB_UPDATE_REPOSITORY='radeklat/python-before-push/master'  # <owner>/<repository>/<branch>
 GITHUB_UPDATE_TEST_SCRIPT='test.sh'
 declare -A GITHUB_UPDATE_SOURCES_TARGETS=(
     ["${GITHUB_UPDATE_TEST_SCRIPT}"]="$(basename "$0")"
     ["tests/.pylintrc"]="${TESTS_FOLDER}/.pylintrc"
-    ["api/.pylintrc"]="${SOURCES_FOLDER}/.pylintrc"
+    ["src/.pylintrc"]="${SOURCES_FOLDER}/.pylintrc"
 )
 
 CREATE_NEW_COVERAGE=false
