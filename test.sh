@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=2.7.1
+VERSION=2.7.2
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -28,7 +28,6 @@ declare -A GITHUB_UPDATE_SOURCES_TARGETS=(
     ["src/.pylintrc"]="${SOURCES_FOLDER}/.pylintrc"
 )
 
-CREATE_NEW_COVERAGE=false
 COVERAGE_MIN_PERCENTAGE=0
 TODOS_LIMIT_PER_PERSON=10
 
@@ -42,7 +41,7 @@ BGREEN='\033[1;32m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color
 TEST_RC_FILE=".testrc"
-declare -A TEST_RC_FILE_HEAD_OFFSET=( ["start"]=8 ["end"]=33 )
+declare -A TEST_RC_FILE_HEAD_OFFSET=( ["start"]=8 ["end"]=32 )
 COVERAGE_FILE="${COVERAGE_FILE:-coverage.xml}"
 
 if [[ -f ${TEST_RC_FILE} ]]; then
@@ -197,7 +196,8 @@ if [[ -n ${show_help+x} ]]; then
     echo -e "Will run only selected tools:"
     echo -e "  -p, --pylint: Run PyLint."
     [[ ${ENABLE_TYPES} == true ]] && echo -e "  -t, --types: Run Mypy for checking types usage."
-    [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -c, --coverage: Run coverage tests."
+    [[ ${ENABLE_COVERAGE} == true ]] && echo -e "  -c, --coverage: Run coverage tests." \
+        "Use export KEEP_COVERAGE_FILE=1 to prevent automatic deletion of previous .coverage file. This is useful for parallel CI pipelines."
     [[ ${ENABLE_UNITTESTS} == true ]] && echo -e "  -u, --unittests: Run unit tests. " \
         "You can pass additional parameters to pytests with the UNIT_TEST_EXTRA_PARAMS environment variable:\n" \
         "\texport UNIT_TEST_EXTRA_PARAMS='-m not database' ./$0 -u  # Will not run unit tests marked as 'database'"
@@ -364,10 +364,6 @@ if [[ ${no_install_requirements} == false ]]; then
     [[ ${do_install_requirements} == true ]] && exit 0
 fi
 
-if [[ ${CREATE_NEW_COVERAGE} == true ]]; then
-    rm .coverage
-fi
-
 if [[ ${use_bdd} == true ]]; then
     echo -e "\n============================== Running behave =================================\n"
 
@@ -376,12 +372,12 @@ if [[ ${use_bdd} == true ]]; then
     test_failed $? "Behave BDD tests"
 fi
 
-[[ ${use_coverage} == true ]] && coverage_pytest_args="--cov=\"${SOURCES_FOLDER}\" --cov-append --cov-report= "
+coverage_pytest_args="--cov=""${SOURCES_FOLDER}"" --cov-append --cov-branch --cov-report= "
 
 if [[ ${ENABLE_UNITTESTS} == true && ${use_unittests} == true ]]; then
     echo -e "\n============================= Running unit tests ===============================\n"
 
-    pytest -n auto -v --junitxml=unit_test_results.xml ${coverage_pytest_args} ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
+    pytest -n auto -v -s --junitxml=unit_test_results.xml ${coverage_pytest_args} ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
 
     test_failed $? "\nUnittests"
 fi
@@ -391,13 +387,17 @@ if [[ ${ENABLE_COVERAGE} == true && ${use_coverage} == true ]]; then
 
     coverage report --skip-covered --fail-under=${COVERAGE_MIN_PERCENTAGE:-0}
 
+    test_failed $? "\nTest for minimum coverage of ${COVERAGE_MIN_PERCENTAGE:-0}%"
+
     coverage html -d "${COVER_PATH}/cover"
     coverage xml -o "${COVER_PATH}/cover/coverage.xml"
 
-    test_failed $? "\nTest for minimum coverage of ${COVERAGE_MIN_PERCENTAGE:-0}%"
-
     # open in default browser
     [[ ${open_in_browser} == true ]] && ${WEBSITE_OPENER} "${COVER_PATH}/cover/index.html"
+fi
+
+if [[ -z ${KEEP_COVERAGE_FILE} ]]; then
+    rm .coverage
 fi
 
 if [[ ${ENABLE_TYPES} == true && ${use_typecheck} == true ]]; then
