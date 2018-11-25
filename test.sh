@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=2.7.2
+VERSION=3.1.1
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -12,7 +12,7 @@ ENABLE_TYPES=true
 ENABLE_TODOS=true
 
 MIN_PYTHON_VERSION="3.6.5"
-MAX_PYTHON_VERSION="3.6.6"
+MAX_PYTHON_VERSION="3.6.7"
 
 SOURCES_FOLDER='src'
 TESTS_FOLDER='tests'
@@ -355,7 +355,7 @@ if [[ ${no_install_requirements} == false ]]; then
 
     fail_if_enabled_but_not_installed true pylint
     fail_if_enabled_but_not_installed ${ENABLE_TYPES} mypy
-    fail_if_enabled_but_not_installed ${ENABLE_UNITTESTS} pytest pytest-cov pytest-xdist
+    fail_if_enabled_but_not_installed ${ENABLE_UNITTESTS} pytest pytest-cov
     fail_if_enabled_but_not_installed ${ENABLE_BDD} behave
     fail_if_enabled_but_not_installed ${ENABLE_COVERAGE} coverage
 
@@ -377,7 +377,7 @@ coverage_pytest_args="--cov=""${SOURCES_FOLDER}"" --cov-append --cov-branch --co
 if [[ ${ENABLE_UNITTESTS} == true && ${use_unittests} == true ]]; then
     echo -e "\n============================= Running unit tests ===============================\n"
 
-    pytest -n auto -v -s --junitxml=unit_test_results.xml ${coverage_pytest_args} ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
+    env $(cat .env | xargs) pytest -v -s --junitxml=unit_test_results.xml ${coverage_pytest_args} ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
 
     test_failed $? "\nUnittests"
 fi
@@ -431,7 +431,7 @@ run_pylint() {
         test_exit 1 "Invalid pylint run type '$1'."
     fi
 
-    pylint --disable="all,RP0001,RP0002,RP0003,RP0101,RP0401,RP0701,RP0801" \
+    pylint --jobs 0 --disable="all,RP0001,RP0002,RP0003,RP0101,RP0401,RP0701,RP0801" \
         --enable="F,E,W,R,C" --msg-template="${msg_template}" \
         --disable='
         missing-docstring,
