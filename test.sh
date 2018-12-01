@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=3.1.1
+VERSION=3.2.0
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -58,19 +58,16 @@ export PYTHONPATH="$(pwd)/${SOURCES_FOLDER}:$(pwd):${PYTHONPATH}"  # PYTHONPATH 
 
 CURRENT_OS="$(uname -s)"
 PIPS=("pip3" "pip")
-VENV=".venv_${CURRENT_OS}"
 PYTHON_EXE=""
 
 if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
     PYTHONS=("python3.exe" "python.exe")
-    VENV_ACTIVATE="${VENV}/Scripts/activate"
     COVER_PATH="$(cygpath.exe -w "$(pwd)")"
     VENV_SUDO=""
     export PATH="/usr/local/bin:/usr/bin:$PATH"
 else
     VENV_SUDO="echo 'Needs sudo to install virtualenv via pip.'; sudo -H "
     PYTHONS=("python3" "python")
-    VENV_ACTIVATE="${VENV}/bin/activate"
     COVER_PATH="${COVER_PATH:-$PWD}"
 fi
 
@@ -82,10 +79,6 @@ for py in ${PYTHONS[*]}; do
         break
     fi
 done
-
-if [[ -z "${PYTHON_EXE}" ]]; then
-    test_exit 253 "No python executable found."
-fi
 
 # platform-specific command to open an HTML file in a default browser
 [[ "${CURRENT_OS}" == "Darwin" ]] && WEBSITE_OPENER="open" || WEBSITE_OPENER="${PYTHON_EXE} -m webbrowser -t"
@@ -131,17 +124,6 @@ test_failed() {
     echo -e "${GREEN}$2 passed.${3:-}${NC}"
 }
 
-# Check if discovered python version is within allowed range.
-check_supported_python_version() {
-    ver() {
-        printf "%03d%03d%03d%03d" $(echo "$1" | tr '.' ' ')
-    }
-    local py_version="$(${PYTHON_EXE} --version 2>&1 | cut -d ' ' -f 2)"
-    [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]] && py_version="$(echo ${py_version} | tr --delete '\r')"
-    [[ $(ver "${py_version}") -ge $(ver "${MIN_PYTHON_VERSION}") && $(ver "${py_version}") -le $(ver "${MAX_PYTHON_VERSION}") ]]
-    test_exit $? "Python version ${py_version} is not supported. Supported versions range is <${MIN_PYTHON_VERSION}, ${MAX_PYTHON_VERSION}>.\nUse '-pe' option to specify different python executable."
-}
-
 # Discovers pip executable on current OS
 discover_pip() {
     for pie in ${PIPS[*]}; do
@@ -154,9 +136,6 @@ discover_pip() {
 
     return 1
 }
-
-PIP_EXE="$(discover_pip)"
-test_exit $? "No pip executable found. Please install pip."
 
 while [[ "$#" > 0 ]]; do
     case $1 in
@@ -223,6 +202,30 @@ if [[ -n ${show_help+x} ]]; then
     echo -e "  --generate-rc-file: Generate RC file for this test script. This file allows to override default settings."
     exit 255
 fi
+
+if [[ -z "${PYTHON_EXE}" ]]; then
+    test_exit 253 "No python executable found."
+fi
+
+PYTHON_EXE="${PYTHON_EXE/#\~/$HOME}"
+CURRENT_PYTHON_VERSION="$(${PYTHON_EXE} --version 2>&1 | cut -d ' ' -f 2)"
+${PYTHON_EXE} --version
+
+VENV=".venv_${CURRENT_OS}_${CURRENT_PYTHON_VERSION}"
+[[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]] && VENV_ACTIVATE="${VENV}/Scripts/activate" || VENV_ACTIVATE="${VENV}/bin/activate"
+
+# Check if discovered python version is within allowed range.
+check_supported_python_version() {
+    ver() {
+        printf "%02d%02d%02d" $(echo "$1" | tr '.' ' ')
+    }
+    [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]] && CURRENT_PYTHON_VERSION="$(echo ${CURRENT_PYTHON_VERSION} | tr --delete '\r')"
+    local current_version=$(ver "${CURRENT_PYTHON_VERSION}")
+    local min_version=$(ver "${MIN_PYTHON_VERSION}")
+    local max_version=$(ver "${MAX_PYTHON_VERSION}")
+    [[ ${current_version#0} -ge ${min_version#0} && ${current_version#0} -le ${max_version#0} ]]
+    test_exit $? "Python version ${CURRENT_PYTHON_VERSION} is not supported. Supported versions range is <${MIN_PYTHON_VERSION}, ${MAX_PYTHON_VERSION}>.\nUse '-pe' option to specify different python executable."
+}
 
 # Sets default values to switches
 # $1 = value to set
@@ -317,11 +320,12 @@ if [[ ${no_virtualenv} == false ]]; then
 
     source "${VENV_ACTIVATE}"
     test_exit $? "Failed to activate virtualenv."
-
-    PIP_EXE="$(discover_pip)"
 else
     check_supported_python_version
 fi
+
+PIP_EXE="$(discover_pip)"
+test_exit $? "No pip executable found. Please install pip."
 
 # Install given libraries if condition variable is true
 # $1 = condition variable
