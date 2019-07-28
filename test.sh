@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=3.3.0
+VERSION=3.3.2
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -24,7 +24,7 @@ BDD_TESTS_FOLDER="${TESTS_FOLDER}/features"
 EXCLUDE_PATH_FROM_TESTS_REGEXP=""  # Used when searching for python files. See man of 'find -regex'.
 
 GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN=''
-GITHUB_UPDATE_REPOSITORY='radeklat/python-before-push/master'  # <owner>/<repository>/<branch>
+GITHUB_UPDATE_REPOSITORY='radeklat/python-before-push'  # <owner>/<repository>
 GITHUB_UPDATE_TEST_SCRIPT='test.sh'
 
 # To skip a file, use: GITHUB_UPDATE_SOURCES_TARGETS["..."]="" (empty string as destination)
