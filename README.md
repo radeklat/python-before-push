@@ -1,21 +1,22 @@
 # python-before-push
+
 A single script to run before push/commit of Python project. It will use common testing tools to 
 check for potential errors. It can be used as git hook as well. The script is ready to use out of 
 the box, allowing to quickly checks new project from the beginning. The script is intended to be 
 self-contained and easy to distribute.
 
+[![Build Status](https://travis-ci.org/radeklat/python-before-push.svg?branch=master)](https://travis-ci.org/radeklat/python-before-push)
+
 ## Motivation
 
 When working on several projects, I found myself running the same tools over and over again:
 
-* Unit tests using [Nose](http://nose.readthedocs.io/en/latest/)
-* Coverage test using [coverage](https://coverage.readthedocs.io/en/coverage-4.4.1/)
-* Doctests using [Nose plugin](http://nose.readthedocs.io/en/latest/plugins/doctests.html) 
-  or Python's [doctest module](https://docs.python.org/3/library/doctest.html)
+* Unit tests using [pytest](https://docs.pytest.org/en/latest/)
+* Coverage test using [coverage](https://coverage.readthedocs.io/en/coverage-4.4.1/) and [pytest-cov](https://github.com/pytest-dev/pytest-cov)
 * [PyLint](https://www.pylint.org/) to perform static analysis
 * [MyPy](http://mypy.readthedocs.io/en/latest/) to check type hints
-* [SonarQube](https://www.sonarqube.org/) when the project is large and multiple people are 
-  working on it or when there is CI available
+* [Black](https://black.readthedocs.io/en/stable/) to format code before every commit and after every test.
+* [Safety](https://github.com/pyupio/safety) to check dependencies in requirements.txt for security issues.
 
 Some of them don't integrate with each other, so I had to run them manually. They also have 
 number of options that I just never remembered and config files were usually obsolete or I 
@@ -61,7 +62,7 @@ in `TESTS_FOLDER`). Then it runs the following checks:
    * If you want to have general default and change some values per project, generate an
      RC file with `./test.sh --generate-rc-file` and change values there. 
    
-   By default all checks are performed, except for [SonarQube](https://www.sonarqube.org/).
+   By default all checks are performed.
 
 1. Run `test.sh` to check for errors: \
    `./test.sh`
