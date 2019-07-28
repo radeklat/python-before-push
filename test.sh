@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=4.0.0
+VERSION=3.2.0
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file

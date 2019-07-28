@@ -1,0 +1,29 @@
+# Uncomment only lines you need to change.
+
+#ENABLE_UNITTESTS=true
+ENABLE_COVERAGE=false
+#ENABLE_BDD=false
+#ENABLE_FORMATTER=true
+#ENABLE_TYPES=true
+#ENABLE_TODOS=true
+ENABLE_SAFETY=false
+
+#MIN_PYTHON_VERSION="3.6"
+#MAX_PYTHON_VERSION="3.7"
+#CHECK_PYTHON_PATCH_VERSION=false
+
+#SOURCES_FOLDER='src'
+#TESTS_FOLDER='tests'
+#UNIT_TESTS_FOLDER="${TESTS_FOLDER}/unit"
+#BDD_TESTS_FOLDER="${TESTS_FOLDER}/features"
+#EXCLUDE_PATH_FROM_TESTS_REGEXP=""  # Used when searching for python files. See man of 'find -regex'.
+
+#GITHUB_UPDATE_PERSONAL_ACCESS_TOKEN=''
+#GITHUB_UPDATE_REPOSITORY='radeklat/python-before-push/master'  # <owner>/<repository>/<branch>
+#GITHUB_UPDATE_TEST_SCRIPT='test.sh'
+
+## To skip a file, use: GITHUB_UPDATE_SOURCES_TARGETS["..."]="" (empty string as destination)
+declare -A GITHUB_UPDATE_SOURCES_TARGETS=()
+
+#COVERAGE_MIN_PERCENTAGE=0
+#TODOS_LIMIT_PER_PERSON=10
