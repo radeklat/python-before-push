@@ -225,3 +225,6 @@ Temporary Items
 # .nfs files are created when an open file is removed but is still being accessed
 .nfs*
 
+.mypy_cache
+.venv*
+*_test_results.xml
