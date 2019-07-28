@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=3.2.0
+VERSION=3.3.0
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -13,7 +13,7 @@ ENABLE_TYPES=true
 ENABLE_TODOS=true
 ENABLE_SAFETY=true
 
-MIN_PYTHON_VERSION="3.6"
+MIN_PYTHON_VERSION="3.5"
 MAX_PYTHON_VERSION="3.7"
 CHECK_PYTHON_PATCH_VERSION=false
 
