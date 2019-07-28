@@ -352,7 +352,7 @@ if [[ ${no_update} == false && -n ${GITHUB_UPDATE_REPOSITORY} && ${#GITHUB_UPDAT
 
     if [[ -n ${GITHUB_UPDATE_BASE_URL} ]]; then
         for source_file in "${!GITHUB_UPDATE_SOURCES_TARGETS[@]}"; do
-            url="${GITHUB_UPDATE_BASE_URL}/synchronised/${source_file}"
+            url="${GITHUB_UPDATE_BASE_URL}/${source_file}"
             target_file="${GITHUB_UPDATE_SOURCES_TARGETS[${source_file}]}"
             [[ -z ${target_file} ]] && continue  # Skip files with no target location
 
