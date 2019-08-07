@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=3.3.2
+VERSION=3.4.0
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -148,6 +148,8 @@ test_exit() {
     fi
 }
 
+TEST_FAILURES=""
+
 # Marks a test as failed/passed with a message base on return code.
 # $1 = exit code to test
 # $2 = test type (string)
@@ -157,6 +159,7 @@ test_failed() {
         failed=$(expr ${failed} + 1);
         [[ ${fail_strict} == true ]] && result_code=1
         echo -e "${BRED}$2 failed.${3:-}${NC}"
+        TEST_FAILURES="${TEST_FAILURES}\n  * $2"
         return 1
     fi
 
@@ -468,7 +471,7 @@ if [[ ${ENABLE_UNITTESTS} == true && ${use_unittests} == true ]]; then
 
     env $(cat .env | xargs) pytest -v --junitxml=unit_test_results.xml ${coverage_pytest_args} ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
 
-    test_failed $? "\nUnittests"
+    test_failed $? "Unit tests"
 fi
 
 if [[ ${ENABLE_COVERAGE} == true && ${use_coverage} == true ]]; then
@@ -476,7 +479,7 @@ if [[ ${ENABLE_COVERAGE} == true && ${use_coverage} == true ]]; then
 
     coverage report --skip-covered --fail-under=${COVERAGE_MIN_PERCENTAGE:-0}
 
-    test_failed $? "\nTest for minimum coverage of ${COVERAGE_MIN_PERCENTAGE:-0}%"
+    test_failed $? "Test for minimum coverage of ${COVERAGE_MIN_PERCENTAGE:-0}%"
 
     coverage html -d "${COVER_PATH}/cover"
     coverage xml -o "${COVER_PATH}/cover/coverage.xml"
@@ -665,7 +668,7 @@ if [[ ${no_virtualenv} == false ]]; then
 fi
 
 if [[ ${failed} -ne 0 ]]; then
-    echo -e "\n${BRED}Some tests failed.${NC}"
+    echo -e "\n${BRED}Some tests failed:${TEST_FAILURES}${NC}"
 else
     echo -e "\n${BGREEN}All tests passed.${NC}"
 fi
