@@ -2,8 +2,7 @@
 
 A single script to run before push/commit of Python project. It will use common testing tools to 
 check for potential errors. It can be used as git hook as well. The script is ready to use out of 
-the box, allowing to quickly checks new project from the beginning. The script is intended to be 
-self-contained and easy to distribute.
+the box, allowing to run checks on a new project from the beginning. The script is intended to be self-contained and easy to distribute.
 
 [![Build Status](https://travis-ci.org/radeklat/python-before-push.svg?branch=master)](https://travis-ci.org/radeklat/python-before-push)
 
@@ -25,28 +24,18 @@ available for everyone?
 
 ## What does it do
 
-On first run, the script creates a [virtualenv](https://pypi.python.org/pypi/virtualenv), 
-activates it, installs there all dependencies for the tests, as well as all project 
-dependencies from the [requirements.txt](https://pip.readthedocs.io/en/1.1/requirements.html) 
-file in the project root. On subsequent runs it reuses that environment and only installs new 
-versions of packages (if fixed version is not used).
+On first run, the script creates a [virtualenv](https://pypi.python.org/pypi/virtualenv), activates it, installs there all dependencies for the tests, as well as all project dependencies from the [requirements.txt](https://pip.readthedocs.io/en/1.1/requirements.html) file in the project root. On subsequent runs it reuses that environment and only installs new versions of packages (if fixed version is not used).
 
-The script can fetch configuration files (with coding style rules for example) from a different
-Github repository (private ones are supported as well).
+The script can fetch configuration files (with coding style rules for example) from a different Github repository (private ones are supported as well). It also updates itself with newer versions. So you can keep the same coding standard up-to-date in multiple repositories.
 
-By default, the script will find all `*.py` files in the sources folder (default is `src`, 
-defined in `SOURCES_FOLDER`) and all tests in the test folder (default is `test`, defined 
-in `TESTS_FOLDER`). Then it runs the following checks:
+By default, the script will find all `*.py` files in the sources folder (default is `src`, defined in `SOURCES_FOLDER`) and all tests in the test folder (default is `test`, defined in `TESTS_FOLDER`). Then it runs the following checks:
 
 * All unit tests
-* All doctests
-* Uni tests timing warnings (only when they exceed certain configurable threshold)
 * Static code analysis (code formatting and complexity, code smells)
-* Typing checks
+* Type checks
 * TODO checks and count
-* Optionally runs [SonarQube Scanner](https://docs.sonarqube.org/display/SCAN/Analyzing+with+SonarQube+Scanner) 
-  that posts results to [SonarQube](https://www.sonarqube.org/) and checks if 
-  [Quality Gate](https://docs.sonarqube.org/display/SONAR/Quality+Gates) is passed.
+* Black to format the code
+* Safety to check requirements for possible security vulnerabilities
 * Optionally opens coverage test results in default web browser. There results are interactive
   (allow sorting and inspecting files individually).
 
@@ -54,15 +43,7 @@ in `TESTS_FOLDER`). Then it runs the following checks:
 
 1. Add `test.sh` to your repository root.
 
-1. Define what you want to check
-   
-   * If you have only one project, modify `test.sh` to your specific needs in section marked
-     as *PROJECT DEFAULTS*.
-   
-   * If you want to have general default and change some values per project, generate an
-     RC file with `./test.sh --generate-rc-file` and change values there. 
-   
-   By default all checks are performed.
+1. Define what you want to check. Generate an RC file with `./test.sh --generate-rc-file` and change values in the resulting `.testrc` file. By default all checks are performed.
 
 1. Run `test.sh` to check for errors: \
    `./test.sh`
@@ -72,10 +53,4 @@ in `TESTS_FOLDER`). Then it runs the following checks:
 
 ## Dependencies
 
-Only SonarQube has some dependencies. If you don't intend to use it, you can use the script
-as is. In order to be able to run SonarQube Scanner and get the Quality Gate result back,
-you will need to install the following:
-
-* curl
-* unzip
-* [Oracle Java SE Development Kit (JDK)](www.oracle.com/technetwork/java/javase/downloads/) (not just JRE!)
+Only the underlying tools. The script will check if they are installed and prompt you to add them if they are missing.
