@@ -4,35 +4,9 @@ from subprocess import run, CompletedProcess
 from typing import List
 from unittest import TestCase
 
-import requests
-
+from issuewatcher import AssertGitHubIssue
 
 TEST_SH_FOLDER = abspath(join(dirname(__file__), "..", ".."))
-
-
-class GithubIssueTestCase(TestCase):
-    _URL_API: str = "https://api.github.com"
-    _URL_WEB: str = "https://github.com"
-    _OWNER: str = ""
-    _REPOSITORY: str = ""
-
-    def assert_github_issue_is_open(self, issue_number: int, msg: str = "") -> None:
-        issue_identifier = f"{self._OWNER}/{self._REPOSITORY}/issues/{issue_number}"
-        state = requests.get(f"{self._URL_API}/repos/{issue_identifier}").json()["state"]
-
-        self.assertEqual(
-            state,
-            "open",
-            msg=f"GitHub issue {self._URL_WEB}/{issue_identifier} is no longer open.{msg}",
-        )
-
-    def assert_released_after_fix(self, last_release_count: int) -> None:
-        releases_url = (
-            f"{self._URL_API}/repos/{self._OWNER}/{self._REPOSITORY}/git/refs/tags"
-        )
-        releases = requests.get(releases_url).json()
-
-        self.assertLessEqual(len(releases), last_release_count)
 
 
 class TestSH(TestCase):
@@ -67,7 +41,7 @@ class TestShRcFile(TestSH):
 
     @staticmethod
     def _generate_rc_file() -> CompletedProcess:
-        return run(["bash", TestSH.FILE_LOCATION, "--generate-rc-file"])
+        return run(["bash", TestSH.FILE_LOCATION, "--generate-rc-file"], check=True)
 
     def test_it_can_generate_dot_testrc_file(self):
         self.assertEqual(self._generate_rc_file().returncode, 0)
@@ -86,21 +60,20 @@ class TestShRcFile(TestSH):
         ), self.OFFSET_ERROR_MSG.format(key_name="end")
 
 
-class BugsInSafetyAreFixedTestCase(GithubIssueTestCase):
-    _OWNER = "pyupio"
-    _REPOSITORY = "safety"
+# Pytest false positive
+# pylint: disable=too-few-public-methods
 
-    def test_safety_cannot_be_enable_on_windows(self):
+
+class TestBugsInSafetyAreFixed:
+    @staticmethod
+    def test_safety_cannot_be_enable_on_windows():
         """
         See details of the issue:
         https://github.com/pyupio/safety/issues/119#issuecomment-511828226
 
         To re-test, remove the OS related conditions around safety in test.sh
         and re-run on windows. Search for 'if [[ ${use_safety} == true ]]; then'
-
-        To test a failing library, use::
-
-            requests==2.19.1
-
         """
-        self.assert_github_issue_is_open(119, "Check if safety can be enabled on Windows.")
+        AssertGitHubIssue("pyupio/safety").is_open(
+            119, "Check if safety can be enabled on Windows."
+        )

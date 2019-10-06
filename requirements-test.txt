@@ -1,6 +1,6 @@
-requests
 pytest
 pylint
 mypy
 black
 pre-commit
+issue-watcher==2.1.0
