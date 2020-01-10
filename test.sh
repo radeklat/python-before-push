@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-VERSION=3.4.1
+VERSION=3.4.2
 
 ### PROJECT DEFAULTS ###
 # To override these values, use the --generate-rc-file switch and modify the generated file
@@ -463,7 +463,7 @@ if [[ ${use_bdd} == true ]]; then
 fi
 
 if [[ ${ENABLE_COVERAGE} == true && ${use_coverage} == true ]]; then
-coverage_pytest_args="--cov=""${SOURCES_FOLDER}"" --cov-append --cov-branch --cov-report= "
+coverage_pytest_args="--cov=""${SOURCES_FOLDER}"" --cov-branch --cov-report= "
 fi
 
 if [[ ${ENABLE_UNITTESTS} == true && ${use_unittests} == true ]]; then
