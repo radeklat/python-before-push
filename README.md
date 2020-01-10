@@ -5,6 +5,9 @@ check for potential errors. It can be used as git hook as well. The script is re
 the box, allowing to run checks on a new project from the beginning. The script is intended to be self-contained and easy to distribute.
 
 [![Build Status](https://travis-ci.org/radeklat/python-before-push.svg?branch=master)](https://travis-ci.org/radeklat/python-before-push)
+![GitHub tag (latest SemVer)](https://img.shields.io/github/tag/radeklat/python-before-push)
+![Maintenance](https://img.shields.io/maintenance/yes/2020)
+![GitHub last commit](https://img.shields.io/github/last-commit/radeklat/python-before-push)
 
 ## Motivation
 
