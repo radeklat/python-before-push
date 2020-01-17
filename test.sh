@@ -12,10 +12,13 @@ ENABLE_FORMATTER=true
 ENABLE_TYPES=true
 ENABLE_TODOS=true
 ENABLE_SAFETY=true
+DJANGO_AWARE=false  # makes tools Django aware, requires extra libraries
 
 MIN_PYTHON_VERSION="3.5"
 MAX_PYTHON_VERSION="3.7"
 CHECK_PYTHON_PATCH_VERSION=false
+MIN_PYLINT_SCORE_SOURCE=10.0
+MIN_PYLINT_SCORE_TESTS=10.0
 
 SOURCES_FOLDER='src'
 TESTS_FOLDER='tests'
@@ -42,7 +45,7 @@ TODOS_LIMIT_PER_PERSON=10
 ### DON'T CHANGE ANYTHING AFTER THIS POINT ###
 # Change offset here if you change the number of lines in previous section
 # Check if correct with `bash test.sh --generate-rc-file`
-declare -A TEST_RC_FILE_HEAD_OFFSET=( ["start"]=8 ["end"]=40 )
+declare -A TEST_RC_FILE_HEAD_OFFSET=( ["start"]=8 ["end"]=43 )
 
 ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
 cd "${ROOT_FOLDER}"
@@ -133,6 +136,17 @@ sigint_handler() {
 }
 
 trap sigint_handler INT
+
+print_header() {
+    local text="$1"
+    local color="$2"
+    local len="${#text}"
+    local width="$(tput cols)"
+    local block=$(("(${width}-${len} - 4)/2"))
+    local line=$(printf '=%.0s' $(eval "echo {1..${block}}"))
+
+    echo -e "\n${color}${line}  ${text}  ${line}${NC}\n"
+}
 
 # Tests exit code. Exits on failure and prints message.
 # On success, prints optional message.
@@ -349,7 +363,7 @@ if [[ ${generate_rc_file} == true ]]; then
 fi
 
 if [[ ${no_update} == false && -n ${GITHUB_UPDATE_REPOSITORY} && ${#GITHUB_UPDATE_SOURCES_TARGETS[@]} -gt 0 ]]; then
-    echo -e "\n============================ Updating team files ==============================\n"
+    print_header "Updating team files"
 
     GITHUB_UPDATE_BASE_URL="$(get_update_url)"
 
@@ -379,8 +393,7 @@ fi
 if [[ ${no_virtualenv} == false ]]; then
     if [[ ! -d "${VENV}" ]]; then
         check_supported_python_version
-
-        echo -e "\n============================ Creating virtualenv ==============================\n"
+        print_header "Creating virtualenv"
 
         if ! ${PYTHON_EXE} -m virtualenv --version >/dev/null 2>&1; then
             ${PYTHON_EXE} -m pip install --user --upgrade virtualenv
@@ -418,7 +431,7 @@ fail_if_enabled_but_not_installed () {
 }
 
 if [[ ${no_install_requirements} == false ]]; then
-    echo -e "\n========================== Refreshing dependencies ============================\n"
+    print_header "Refreshing dependencies"
 
     if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
         ${PIP_EXE} install --upgrade pypiwin32
@@ -439,6 +452,7 @@ if [[ ${no_install_requirements} == false ]]; then
     fail_if_enabled_but_not_installed ${ENABLE_COVERAGE} coverage pytest-cov
     fail_if_enabled_but_not_installed ${ENABLE_FORMATTER} pre-commit black
     fail_if_enabled_but_not_installed ${ENABLE_SAFETY} safety
+    fail_if_enabled_but_not_installed ${DJANGO_AWARE} pylint-django
 
     pre-commit install
 
@@ -448,37 +462,30 @@ if [[ ${no_install_requirements} == false ]]; then
 fi
 
 if [[ ${use_formatter} == true ]]; then
-    echo -e "\n============================= Running formatter ===============================\n"
-
+    print_header "Running formatter"
     pre-commit run black --all-files
-    test_failed 0 "Formatter"  # Formatter always passes...
+    test_failed $? "Formatter"
 fi
 
 if [[ ${use_bdd} == true ]]; then
-    echo -e "\n============================== Running behave =================================\n"
-
+    print_header "Running behave"
     behave ${BDD_TESTS_FOLDER}
-
     test_failed $? "Behave BDD tests"
 fi
 
 if [[ ${ENABLE_COVERAGE} == true && ${use_coverage} == true ]]; then
-coverage_pytest_args="--cov=""${SOURCES_FOLDER}"" --cov-branch --cov-report= "
+    coverage_pytest_args="--cov=""${SOURCES_FOLDER}"" --cov-branch --cov-report= "
 fi
 
 if [[ ${ENABLE_UNITTESTS} == true && ${use_unittests} == true ]]; then
-    echo -e "\n============================= Running unit tests ===============================\n"
-
+    print_header "Running unit tests"
     env $(cat .env | xargs) pytest -v --junitxml=unit_test_results.xml ${coverage_pytest_args} ${UNIT_TEST_EXTRA_PARAMS} ${UNIT_TESTS_FOLDER}
-
     test_failed $? "Unit tests"
 fi
 
 if [[ ${ENABLE_COVERAGE} == true && ${use_coverage} == true ]]; then
-    echo -e "\n=========================== Running coverage test =============================\n"
-
+    print_header "Running coverage test"
     coverage report --skip-covered --fail-under=${COVERAGE_MIN_PERCENTAGE:-0}
-
     test_failed $? "Test for minimum coverage of ${COVERAGE_MIN_PERCENTAGE:-0}%"
 
     coverage html -d "${COVER_PATH}/cover"
@@ -493,7 +500,7 @@ if [[ -z ${KEEP_COVERAGE_FILE} ]]; then
 fi
 
 if [[ ${ENABLE_TYPES} == true && ${use_typecheck} == true ]]; then
-    echo -e "\n============================ Running type check ===============================\n"
+    print_header "Running type check"
 
     mypy_exe="mypy"
     if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
@@ -506,26 +513,38 @@ if [[ ${ENABLE_TYPES} == true && ${use_typecheck} == true ]]; then
 fi
 
 # $1 = 'source', 'tests'
+# $2 = minimum pylint score
 run_pylint() {
     # unused-import disabled because it is picking up typing imports. Fix is coming.
 
-    msg_template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})'
-    params=()
+    local msg_template='{C}:{line:3d},{column:2d}: {msg} ({symbol}, {msg_id})'
+    local extra_params=""
+    local files=""
+    local min_score=$2
+
+    [[ ${DJANGO_AWARE} == true ]] && extra_params="${extra_params}'--load-plugins','pylint_django',"
 
     if [[ $1 == 'source' ]]; then  # running pylint for source code
         export PYLINTRC="${SOURCES_FOLDER}/.pylintrc"
         files=${source_files}
     elif [[ $1 == 'tests' ]]; then  # running pylint for tests code
         export PYLINTRC="${TESTS_FOLDER}/.pylintrc"
-        params=(--disable=protected-access)
+        extra_params="${extra_params}'--disable=protected-access',"
         files=${test_files}
     else  # invalid option
         test_exit 1 "Invalid pylint run type '$1'."
     fi
 
-    pylint --jobs 0 --disable="all,RP0001,RP0002,RP0003,RP0101,RP0401,RP0701,RP0801" \
-        --enable="F,E,W,R,C" --msg-template="${msg_template}" \
-        --disable='
+    # The following code is horrible. Caused by https://github.com/PyCQA/pylint/issues/2242
+    ${PYTHON_EXE} -c "
+from pylint import lint
+from sys import exit
+run = lint.Run([
+    '--jobs', '0',
+    '--disable', 'all,RP0001,RP0002,RP0003,RP0101,RP0401,RP0701,RP0801',
+    '--enable', 'F,E,W,R,C',
+    '--msg-template', '${msg_template}',
+    '--disable', '''
         missing-docstring,
         missing-type-doc,
         missing-returns-doc,
@@ -583,9 +602,13 @@ run_pylint() {
         using-cmp-argument,
         xrange-builtin,
         zip-builtin-not-iterating
-        ' \
-        --evaluation="10.0 - ((float(20 * fatal + 10 * error + 5 * warning + 2 * refactor + convention) / statement) * 10)" \
-        ${params[@]} --enable='useless-suppression' ${files}
+    ''',
+    '--evaluation', '10.0 - ((float(20 * fatal + 10 * error + 5 * warning + 2 * refactor + convention) / statement) * 10)',
+    '--enable', 'useless-suppression',
+    ${extra_params}
+    *'''${files}'''.split('\n'),
+], do_exit=False)
+exit(bool(run.linter.stats['global_note'] < ${min_score}))"
 
     return $?
 }
@@ -597,22 +620,20 @@ if [[ ${use_pylint} == true ]]; then
     fi
 
     if [[ -n "${source_files}" ]]; then
-        echo -e "\n====================== Running pylint on source code ==========================\n"
-
-        run_pylint 'source'
-        test_failed $? "PyLint checks on source code"
+        print_header "Running pylint on source code"
+        run_pylint 'source' ${MIN_PYLINT_SCORE_SOURCE}
+        test_failed $? "PyLint checks on source code" "\nMinimum score is ${MIN_PYLINT_SCORE_SOURCE}"
     fi
 
     if [[ -n "${test_files}" ]]; then
-        echo -e "\n========================== Running pylint on tests ============================\n"
-
-        run_pylint 'tests'
-        test_failed $? "PyLint checks on tests" "\n"
+        print_header "Running pylint on tests"
+        run_pylint 'tests' ${MIN_PYLINT_SCORE_TESTS}
+        test_failed $? "PyLint checks on tests" "\nMinimum score is ${MIN_PYLINT_SCORE_TESTS}"
     fi
 fi
 
 if [[ ${use_todos} == true ]]; then
-    echo -e "\n=========================== Running TODOs check ===============================\n"
+    print_header "Running TODOs check"
 
     todos="$(grep -Enr --exclude-dir=$EXCLUDE_PATH_FROM_TESTS_REGEXP --include=*.{py,sh,feature} --include={Docker,Jenkins}file 'TODO *[(:]' Dockerfile Jenkinsfile ${SOURCES_FOLDER} ${TESTS_FOLDER} | tr -s ' ')"
     unnamed_todos=$(echo "${todos}" | grep -E "TODO[^(]*:")
@@ -639,7 +660,7 @@ if [[ ${use_todos} == true ]]; then
 fi
 
 if [[ ${use_safety} == true ]]; then
-    echo -e "\n========================== Running Safety check ===============================\n"
+    print_header "Running Safety check"
 
     if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
         echo -e "${BYELLOW}Safety currently doesn't work on Windows. See https://github.com/pyupio/safety/issues/119${NC}"
