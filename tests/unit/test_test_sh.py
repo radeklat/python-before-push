@@ -34,10 +34,19 @@ class TestShRcFile(TestSH):
             pass
 
     def setUp(self):
+        try:
+            with open(self.RC_FILE_LOCATION, "r") as file_descriptor:
+                self._current_rc_file = file_descriptor.read()
+        except FileNotFoundError:
+            self._current_rc_file = None
+
         self._cleanup()
 
     def tearDown(self):
         self._cleanup()
+        if self._current_rc_file:
+            with open(self.RC_FILE_LOCATION, "w") as file_descriptor:
+                file_descriptor.write(self._current_rc_file)
 
     @staticmethod
     def _generate_rc_file() -> CompletedProcess:
@@ -60,11 +69,7 @@ class TestShRcFile(TestSH):
         ), self.OFFSET_ERROR_MSG.format(key_name="end")
 
 
-# Pytest false positive
-# pylint: disable=too-few-public-methods
-
-
-class TestBugsInSafetyAreFixed:
+class TestBugsInSafety:  # pylint: disable=too-few-public-methods
     @staticmethod
     def test_safety_cannot_be_enable_on_windows():
         """
@@ -73,6 +78,11 @@ class TestBugsInSafetyAreFixed:
 
         To re-test, remove the OS related conditions around safety in test.sh
         and re-run on windows. Search for 'if [[ ${use_safety} == true ]]; then'
+
+        To test a failing library, use::
+
+            requests==2.19.1
+
         """
         AssertGitHubIssue("pyupio/safety").is_open(
             119, "Check if safety can be enabled on Windows."
