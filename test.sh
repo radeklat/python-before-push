@@ -141,8 +141,8 @@ print_header() {
     local text="$1"
     local color="$2"
     local len="${#text}"
-    local width="$(tput cols)"
-    local block=$(("(${width}-${len} - 4)/2"))
+    local width="$(tput cols 2>/dev/null || echo '80')" # fallback for no terminal
+    local block=$(echo "(${width}-${len}-4)/2" | bc)
     local line=$(printf '=%.0s' $(eval "echo {1..${block}}"))
 
     echo -e "\n${color}${line}  ${text}  ${line}${NC}\n"
