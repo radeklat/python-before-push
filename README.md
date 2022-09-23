@@ -1,3 +1,7 @@
+# Deprecation notice
+
+This repository will no longer be maintained. See [Delfino](https://github.com/radeklat/delfino), similar tool written in Python and installable from PyPi.
+
 # python-before-push
 
 A single script to run before push/commit of Python project. It will use common testing tools to 
